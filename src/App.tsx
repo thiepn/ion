@@ -1,11 +1,25 @@
 import { Canvas } from '@react-three/fiber';
 import { ACESFilmicToneMapping } from 'three';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { World } from './World';
+import { Minimap } from './Minimap';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 
 type CameraMode = 'CHASE' | 'NEAR';
 type Quality = 'PERFORMANCE' | 'QUALITY';
+const PAINTS = [
+  { name: 'ARCTIC', hex: '#e2f0ed', detail: 'CERAMIC WHITE' },
+  { name: 'EMBER', hex: '#f08958', detail: 'SIGNAL ORANGE' },
+  { name: 'ION BLUE', hex: '#54bdd9', detail: 'ELECTRIC BLUE' },
+  { name: 'TITANIUM', hex: '#7a8799', detail: 'SATIN GRAPHITE' },
+  { name: 'VOLT', hex: '#b8d66c', detail: 'ACID LIME' },
+] as const;
+function initialPaint() {
+  try {
+    const color = localStorage.getItem('ion-v2-paint');
+    return PAINTS.find(p => p.hex === color)?.hex || PAINTS[0].hex;
+  } catch { return PAINTS[0].hex; }
+}
 
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds)) return '--:--.---';
@@ -39,13 +53,19 @@ export function App() {
   const [cameraMode,setCameraMode]=useState<CameraMode>('CHASE');
   const [quality,setQuality]=useState<Quality>('QUALITY');
   const [help,setHelp]=useState(false);
+  const [garage,setGarage]=useState(false);
+  const [paint,setPaint]=useState<string>(initialPaint);
+  const selectPaint=useCallback((next:string)=>{
+    setPaint(next);
+    try { localStorage.setItem('ion-v2-paint',next); } catch { /* optional local preference */ }
+  },[]);
   const newest=useRef(data);
   newest.current=data;
 
   const refresh=useCallback(()=>setData(game.snapshot()),[game]);
   const togglePause=useCallback(()=>{game.pause();refresh()},[game,refresh]);
-  const start=useCallback(()=>{game.start();setHelp(false);refresh()},[game,refresh]);
-  const mainMenu=useCallback(()=>{game.menu();setHelp(false);refresh()},[game,refresh]);
+  const start=useCallback(()=>{game.start();setGarage(false);setHelp(false);refresh()},[game,refresh]);
+  const mainMenu=useCallback(()=>{game.menu();setGarage(false);setHelp(false);refresh()},[game,refresh]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
 
   useEffect(()=>{
@@ -81,7 +101,7 @@ export function App() {
           camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
           gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
           onCreated={({gl})=>{gl.toneMapping=ACESFilmicToneMapping;gl.toneMappingExposure=1.15;}}>
-          <World game={game} input={input} cameraMode={cameraMode} onSnapshot={onTelemetry}/>
+          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} onSnapshot={onTelemetry}/>
         </Canvas>
       </div>
       <div className="vignette" aria-hidden="true"/>
@@ -113,6 +133,7 @@ export function App() {
               <span className="quiet">LAP {formatTime(data.lapTime)}</span>
             </div>
           </div>
+          <Minimap race={data}/>
           <div className="race-bottom">
             <div className="status-meters">
               <Meter label="SHIELD" amount={data.shield}/>
@@ -131,7 +152,7 @@ export function App() {
 
       {isBlocking && <div className="overlay-backdrop" aria-hidden="true"/>}
 
-      {data.phase==='menu' && (
+      {data.phase==='menu' && !garage && (
         <main className="menu-panel">
           <div className="menu-rule"><span>01 — PILOT INITIALIZATION</span><span>SYSTEM ONLINE</span></div>
           <p className="intro-overline">SINGLE PLAYER / CIRCUIT 01</p>
@@ -139,11 +160,44 @@ export function App() {
           <p className="intro-copy">One machine. One elevated circuit. Push the limit, hold the racing line, and set your fastest lap.</p>
           <div className="menu-actions">
             <button type="button" className="cta" onClick={start}>START TIME TRIAL <span aria-hidden="true">↗</span></button>
+            <button type="button" className="secondary-action" onClick={()=>setGarage(true)}>CUSTOMIZE HOVERCRAFT <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setHelp(true)}>CONTROLS & HOW TO PLAY <span aria-hidden="true">↗</span></button>
           </div>
           <div className="menu-stats">
             <div><span>TRACK</span><b>01 / NIGHTSHIFT</b></div>
             <div><span>YOUR BEST LAP</span><b className="mono">{data.bestLap===null?'— NO RECORD —':formatTime(data.bestLap)}</b></div>
+          </div>
+        </main>
+      )}
+
+      {data.phase==='menu' && garage && (
+        <main className="garage-panel">
+          <div className="menu-rule"><span>02 — VEHICLE CUSTOMIZATION</span><span>GARAGE</span></div>
+          <p className="intro-overline">CRAFT 01 / SINGLE-SEAT CLASS</p>
+          <h2>ION <em>MK.I</em></h2>
+          <p className="intro-copy">Choose your hovercraft paint. Your selection updates the actual 3D vehicle and is saved locally on this device.</p>
+          <div className="craft-specs">
+            <div><span>TOP SPEED</span><b>310 KM/H</b></div>
+            <div><span>BOOST CAP</span><b>414 KM/H</b></div>
+            <div><span>DRIVE CLASS</span><b>ANTI-GRAV</b></div>
+          </div>
+          <div className="paint-title">FINISH <span>{PAINTS.find(p=>p.hex===paint)?.detail}</span></div>
+          <div className="paint-palette" role="group" aria-label="Vehicle color selection">
+            {PAINTS.map(option => (
+              <button key={option.name} type="button"
+                className={`paint-option ${paint===option.hex?'selected':''}`}
+                aria-label={option.name} title={option.name}
+                aria-pressed={paint===option.hex}
+                onClick={()=>selectPaint(option.hex)}
+                style={{'--paint':option.hex} as CSSProperties}>
+                <span className="paint-dot"/>
+                <span>{option.name}</span>
+              </button>
+            ))}
+          </div>
+          <div className="garage-actions">
+            <button type="button" className="cta" onClick={start}>RACE WITH THIS CRAFT <span>↗</span></button>
+            <button type="button" className="secondary-action" onClick={()=>setGarage(false)}>BACK TO MAIN MENU</button>
           </div>
         </main>
       )}

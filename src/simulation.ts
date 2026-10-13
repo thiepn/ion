@@ -20,6 +20,9 @@ export type RaceSnapshot = {
   progress: number;
   isBoosting: boolean;
   impact: number;
+  worldX: number;
+  worldZ: number;
+  heading: number;
 };
 
 const MAX_LAPS = 3;
@@ -98,7 +101,11 @@ export class InputController {
 export class RaceEngine {
   phase: Phase = 'menu';
   reason: FinishReason = null;
-  position = trackAt(0).position.clone();
+  position = (() => {
+    const p = trackAt(0).position.clone();
+    p.y += 2.5;
+    return p;
+  })();
   heading = headingAt(0);
   speed = 0;
   pitch = 0;
@@ -268,6 +275,9 @@ export class RaceEngine {
       progress: this.progress,
       isBoosting: this.isBoosting,
       impact: this.impact,
+      worldX: this.position.x,
+      worldZ: this.position.z,
+      heading: this.heading,
     };
   }
 }

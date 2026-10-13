@@ -12,6 +12,8 @@ type Props = {
   game: RaceEngine;
   input: InputController;
   cameraMode: CameraMode;
+  paint: string;
+  showcase: boolean;
   onSnapshot: (snapshot: RaceSnapshot) => void;
 };
 
@@ -27,7 +29,6 @@ function seeded(seed: number) {
     return v / 4294967296;
   };
 }
-const random = seeded(734211);
 
 function Road() {
   const ribbons = useMemo(() => ({
@@ -115,7 +116,9 @@ function startGate(t: number, accent: string) {
 }
 
 function CircuitDetails() {
-  const buildingData = useMemo(() => Array.from({ length: 124 }, (_, i) => {
+  const buildingData = useMemo(() => {
+    const random = seeded(734211);
+    return Array.from({ length: 124 }, (_, i) => {
     const t = (i + random() * 0.6) / 124;
     const { position, right } = trackAt(t);
     const side = i % 2 === 0 ? -1 : 1;
@@ -129,7 +132,48 @@ function CircuitDetails() {
       width, height,
       color: i % 9 === 0 ? '#344d61' : i % 4 === 0 ? '#22394d' : '#1a293b',
     };
+    });
+  }, []);
+
+  const supports = useMemo(() => Array.from({length: 32}, (_, i) => {
+    const {position} = trackAt((i + 0.2) / 32);
+    const height = Math.max(5, position.y + 25);
+    return {x:position.x, y: -25 + height * 0.5, z:position.z, height};
   }), []);
+
+  // Thousands of emissive surface details in one draw call, not separate meshes.
+  const windows = useMemo(() => {
+    const random = seeded(93137);
+    const result: Vector3[] = [];
+    buildingData.forEach((b, index) => {
+      if (index % 3 === 1) return;
+      const rows = Math.min(12, Math.max(2, Math.floor(b.height / 9)));
+      for(let row = 0; row < rows; row++) {
+        if(random() < 0.32) continue;
+        for(let col=-1; col<=1; col++) {
+          if(random() < 0.38) continue;
+          result.push(new Vector3(
+            b.x + col * (b.width * 0.22),
+            b.y - b.height * 0.5 + 4 + (row + 0.5) * (b.height - 7) / rows,
+            b.z + b.width * 0.4 + 0.07
+          ));
+        }
+      }
+    });
+    return result;
+  }, [buildingData]);
+  const windowRef = useRef<InstancedMesh>(null);
+  useEffect(() => {
+    if (!windowRef.current) return;
+    const dummy = new Object3D();
+    for (let i = 0; i < windows.length; i++) {
+      dummy.position.copy(windows[i]);
+      dummy.scale.set(0.85, 1.7, 0.1);
+      dummy.updateMatrix();
+      windowRef.current.setMatrixAt(i, dummy.matrix);
+    }
+    windowRef.current.instanceMatrix.needsUpdate = true;
+  }, [windows]);
 
   const lamps = useMemo(() => Array.from({ length: 170 }, (_, i) => {
     const t = i / 85;
@@ -151,11 +195,14 @@ function CircuitDetails() {
     lampRef.current.instanceMatrix.needsUpdate = true;
   }, [lamps]);
 
-  const farMonoliths = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
-    angle: i * Math.PI * 2 / 24,
-    height: 50 + random() * 175,
-    width: 12 + random() * 19,
-  })), []);
+  const farMonoliths = useMemo(() => {
+    const random = seeded(11752);
+    return Array.from({ length: 24 }, (_, i) => ({
+      angle: i * Math.PI * 2 / 24,
+      height: 50 + random() * 175,
+      width: 12 + random() * 19,
+    }));
+  }, []);
 
   return (
     <group>
@@ -163,6 +210,12 @@ function CircuitDetails() {
         <planeGeometry args={[1700, 1700]} />
         <meshStandardMaterial color="#101b2b" metalness={0.18} roughness={0.94} />
       </mesh>
+      {supports.map((support, i) => (
+        <mesh key={'support'+i} position={[support.x,support.y,support.z]} receiveShadow>
+          <cylinderGeometry args={[2.8,3.7,support.height,8]}/>
+          <meshStandardMaterial color="#243545" metalness={0.6} roughness={0.67}/>
+        </mesh>
+      ))}
       {farMonoliths.map((m, i) => (
         <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -20 + m.height/2, Math.cos(m.angle)*530]}>
           <boxGeometry args={[m.width, m.height, m.width * 0.7]} />
@@ -189,6 +242,10 @@ function CircuitDetails() {
           )}
         </group>
       ))}
+      <instancedMesh ref={windowRef} args={[undefined,undefined,windows.length]} frustumCulled={false}>
+        <boxGeometry args={[1,1,1]}/>
+        <meshBasicMaterial color="#87c3d1" toneMapped={false}/>
+      </instancedMesh>
       <instancedMesh ref={lampRef} args={[undefined,undefined,lamps.length]} frustumCulled={false}>
         <boxGeometry args={[1,1,1]} />
         <meshBasicMaterial color={CYAN} toneMapped={false} />
@@ -213,11 +270,12 @@ function CircuitDetails() {
   );
 }
 
-function Hovercraft({ game, shipRef, hullRef, flameRef }: {
+function Hovercraft({ game, shipRef, hullRef, flameRef, paint }: {
   game: RaceEngine;
   shipRef: React.RefObject<Group | null>;
   hullRef: React.RefObject<Group | null>;
   flameRef: React.RefObject<Mesh | null>;
+  paint: string;
 }) {
   const blades = useMemo(() => {
     const positions = [
@@ -231,11 +289,11 @@ function Hovercraft({ game, shipRef, hullRef, flameRef }: {
       <group ref={hullRef}>
         <mesh position={[0, 0.12, 0]} castShadow>
           <boxGeometry args={[2.55,0.62,4.8]} />
-          <meshPhysicalMaterial color="#e3e8e7" metalness={0.75} roughness={0.29} clearcoat={0.7} />
+          <meshPhysicalMaterial color={paint} metalness={0.75} roughness={0.29} clearcoat={0.7} />
         </mesh>
         <mesh position={[0, 0.15, 2.55]} rotation={[Math.PI / 2,0,0]} castShadow>
           <coneGeometry args={[1.16,3.0,4]} />
-          <meshStandardMaterial color="#d5dddf" metalness={0.78} roughness={0.27} flatShading />
+          <meshStandardMaterial color={paint} metalness={0.78} roughness={0.27} flatShading />
         </mesh>
         {[-1,1].map(side=> (
           <group key={side}>
@@ -302,7 +360,7 @@ function AtmosphericParticles() {
   );
 }
 
-export function World({ game, input, onSnapshot, cameraMode }: Props) {
+export function World({ game, input, onSnapshot, cameraMode, paint, showcase }: Props) {
   const ship = useRef<Group>(null);
   const hull = useRef<Group>(null);
   const flame = useRef<Mesh>(null);
@@ -310,10 +368,24 @@ export function World({ game, input, onSnapshot, cameraMode }: Props) {
   const desiredCamera = useMemo(()=>new Vector3(),[]);
   const focus = useMemo(()=>new Vector3(),[]);
   const lastReport = useRef(0);
+  const fixedAccumulator = useRef(0);
   const initialised = useRef(false);
 
   useFrame(({ clock }, dt) => {
-    game.update(dt, input.get());
+    // Deterministic 60 Hz simulation independent of monitor refresh.
+    // Cap catch-up after tab stalls rather than simulating seconds in one frame.
+    if (game.phase === 'racing' || game.phase === 'countdown') {
+      fixedAccumulator.current = Math.min(fixedAccumulator.current + Math.min(dt, 0.12), 7 / 60);
+      const controls = input.get();
+      let substeps = 0;
+      while (fixedAccumulator.current >= 1 / 60 && substeps < 7) {
+        game.update(1 / 60, controls);
+        fixedAccumulator.current -= 1 / 60;
+        substeps++;
+      }
+    } else {
+      fixedAccumulator.current = 0;
+    }
     const h = game.heading;
     const forwardX = Math.sin(h);
     const forwardZ = Math.cos(h);
@@ -331,8 +403,14 @@ export function World({ game, input, onSnapshot, cameraMode }: Props) {
       flame.current.scale.set(1, Math.max(0.2,game.isBoosting?1.35:0.48)+Math.sin(clock.elapsedTime * 33)*0.1, 1);
     }
     const distance = cameraMode === 'NEAR' ? 9 : 18;
-    desiredCamera.set(game.position.x - forwardX*distance, game.position.y + (cameraMode==='NEAR'?4.4:8.8),game.position.z-forwardZ*distance);
-    focus.set(game.position.x + forwardX*12,game.position.y+2,game.position.z + forwardZ*12);
+    if (showcase && game.phase === 'menu') {
+      const theta = clock.elapsedTime * 0.22;
+      desiredCamera.set(game.position.x + Math.sin(theta) * 14, game.position.y + 6.8, game.position.z + Math.cos(theta) * 14);
+      focus.set(game.position.x, game.position.y + 0.5, game.position.z);
+    } else {
+      desiredCamera.set(game.position.x - forwardX*distance, game.position.y + (cameraMode==='NEAR'?4.4:8.8),game.position.z-forwardZ*distance);
+      focus.set(game.position.x + forwardX*12,game.position.y+2,game.position.z + forwardZ*12);
+    }
     if (!initialised.current) {
       camera.position.copy(desiredCamera);
       initialised.current = true;
@@ -363,7 +441,7 @@ export function World({ game, input, onSnapshot, cameraMode }: Props) {
       <Road/>
       <CircuitDetails/>
       <AtmosphericParticles/>
-      <Hovercraft game={game} shipRef={ship} hullRef={hull} flameRef={flame}/>
+      <Hovercraft game={game} shipRef={ship} hullRef={hull} flameRef={flame} paint={paint}/>
       <mesh position={[-420,205,-380]}>
         <sphereGeometry args={[60,32,16]}/>
         <meshBasicMaterial color="#ffaf72" toneMapped={false} />

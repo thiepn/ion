@@ -148,3 +148,68 @@ h1,h2,p{margin-top:0}
   .race-bottom{bottom:55px}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+
+/* V2 vehicle garage and track-accurate vector minimap */
+.garage-panel{
+  position:absolute;z-index:4;top:50%;left:clamp(26px,8vw,136px);
+  transform:translateY(-48%);width:min(520px,48vw);
+}
+.garage-panel h2{
+  font:900 clamp(72px,8vw,128px)/.9 'Barlow Condensed',Impact,sans-serif;
+  letter-spacing:-.04em;margin:22px 0 18px;
+}
+.garage-panel h2 em{font-style:normal;color:#95e5e3}
+.garage-panel .intro-copy{margin-bottom:24px;max-width:370px}
+.craft-specs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  border-top:1px solid rgba(181,216,226,.27);border-bottom:1px solid rgba(181,216,226,.27);
+  padding:17px 0;margin:20px 0 25px}
+.craft-specs>div{display:grid;gap:9px}
+.craft-specs span,.paint-title{font:600 10px 'DM Mono',monospace;color:#8eaeba;letter-spacing:.07em}
+.craft-specs b{font:800 17px 'Barlow Condensed',Impact,sans-serif;color:#f3f9f9;letter-spacing:.06em}
+.paint-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}
+.paint-title span{color:#f9b58c}
+.paint-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.paint-option{min-width:0;display:grid;justify-items:center;gap:9px;padding:11px 2px 9px;
+  border:1px solid rgba(138,182,200,.29);background:rgba(8,20,33,.7);color:#9baab2;
+  font:700 9px 'DM Mono',monospace;letter-spacing:.02em}
+.paint-option.selected{border-color:#a8f4ec;background:rgba(31,71,79,.8);color:#e7f9f7}
+.paint-option:hover{border-color:#9ac9cd}
+.paint-dot{width:28px;height:28px;border-radius:50%;background:var(--paint);
+  border:2px solid rgba(225,243,246,.55);box-shadow:inset 0 -5px 8px #0005}
+.garage-actions{display:grid;gap:10px;max-width:400px;margin-top:24px}
+.minimap{position:absolute;right:clamp(20px,4vw,66px);top:clamp(215px,25vh,310px);
+  width:clamp(140px,15vw,200px);z-index:2;pointer-events:none;
+  padding:12px 12px 10px;background:rgba(6,17,30,.5);border:1px solid rgba(149,201,220,.26);
+  backdrop-filter:blur(5px)}
+.minimap svg{display:block;width:100%;height:auto;aspect-ratio:1}
+.minimap-heading,.minimap-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font:700 9px 'DM Mono',monospace;letter-spacing:.1em;color:#a9c1c9}
+.minimap-heading span:last-child{color:#f2b487}
+.minimap-foot{border-top:1px solid rgba(172,210,223,.22);padding-top:7px}
+.minimap-foot strong{color:#f1fafa;font-size:11px}
+@media(max-width:800px){
+  .garage-panel{left:30px;width:min(510px,calc(100vw - 60px))}
+  .minimap{top:195px;width:148px}
+}
+@media(max-width:580px){
+  .garage-panel{left:22px;right:22px;width:auto;top:51%}
+  .garage-panel h2{font-size:70px;margin:14px 0}
+  .garage-panel .intro-copy{font-size:12px;line-height:1.55;margin-bottom:14px}
+  .craft-specs{margin:12px 0 15px;padding:12px 0}
+  .craft-specs b{font-size:15px}
+  .paint-palette{gap:4px}
+  .paint-option{font-size:7px;gap:6px;padding:8px 1px}
+  .paint-dot{width:24px;height:24px}
+  .garage-actions{margin-top:15px}
+  .minimap{top:160px;right:15px;padding:7px;width:126px}
+  .minimap-heading,.minimap-foot{font-size:7px}
+}
+@media(max-height:680px){
+  .garage-panel{top:50%;transform:translateY(-46%)}
+  .garage-panel h2{font-size:60px;margin:10px 0}
+  .garage-panel .intro-overline{margin:10px 0 4px}
+  .garage-panel .intro-copy{margin-bottom:10px}
+  .garage-actions{margin-top:10px}
+  .paint-option{padding:5px 0}
+  .minimap{top:100px;width:125px}
+}
