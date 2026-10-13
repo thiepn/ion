@@ -215,13 +215,12 @@ export class RaceEngine {
     if (travel < -0.5) travel += 1;
     if (travel > 0.5) travel -= 1;
     this.previousT = road.t;
-    // Ignore progress from reverse travel; don't count spurious teleport-like jumps.
-    if (travel > 0 && travel < 0.035) this.progress += travel;
-
-    const gates = [0.25, 0.5, 0.75];
-    if (this.checkpoints < gates.length && this.progress >= gates[this.checkpoints]) {
-      this.checkpoints++;
+    // Use signed progress, not the sum of forward movements. Reversing and
+    // re-crossing a checkpoint must never award a second segment.
+    if (Math.abs(travel) < 0.035) {
+      this.progress = Math.max(0, this.progress + travel);
     }
+    this.checkpoints = [0.25, 0.5, 0.75].filter(gate => this.progress >= gate).length;
     if (this.progress >= 1 && this.checkpoints === 3) {
       this.lapTimes.push(this.lapTime);
       if (this.bestLap === null || this.lapTime < this.bestLap) {
