@@ -28,7 +28,7 @@ export function Minimap({ race }: { race: RaceSnapshot }) {
   const marker = useMemo(() => ({
     x: mapX(race.worldX),
     y: mapY(race.worldZ),
-    angle: 180 - race.heading * 180 / Math.PI,
+    angle: race.heading * 180 / Math.PI,
   }), [race.worldX, race.worldZ, race.heading]);
 
   return (
