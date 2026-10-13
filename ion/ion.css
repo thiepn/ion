@@ -1,0 +1,130 @@
+/* ION interface overlay. Original Three.js racing systems remain unmodified. */
+:root {
+  color-scheme: dark;
+  --ion-ink: #d8ecf5;
+  --ion-accent: #81f5ed;
+  --ion-muted: #889da9;
+}
+html, body {
+  background: #091320;
+  color: var(--ion-ink);
+  font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+}
+#global {
+  filter: saturate(.76) brightness(.56);
+  animation: none;
+}
+#step-1:before {
+  position: fixed;
+  content: "";
+  inset: 0;
+  background: linear-gradient(95deg, rgba(4,10,20,.76), transparent 75%);
+  pointer-events: none;
+  z-index: 1;
+}
+#title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  top: 7%;
+  bottom: auto;
+  height: 39%;
+  background: none;
+  animation: none;
+  pointer-events: none;
+  font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+}
+.ion-wordmark {
+  color: #e6fcfa;
+  font-weight: 900;
+  font-size: clamp(7rem, 20vw, 17rem);
+  line-height: .86;
+  letter-spacing: -.13em;
+  padding-right: .13em;
+  text-shadow: 0 0 34px rgba(73,231,229,.3);
+}
+.ion-subtitle {
+  margin-top: 1.8rem;
+  font: 700 clamp(.67rem,1.2vw,1rem)/1.4 Arial, sans-serif;
+  letter-spacing: .48em;
+  color: var(--ion-accent);
+}
+#menucontainer {
+  bottom: clamp(76px, 12vh, 140px);
+}
+#menu {
+  font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(.9rem, 1.45vw, 1.16rem);
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: var(--ion-ink);
+  max-width: 420px;
+}
+#menu div {
+  background: rgba(7,18,29,.62);
+  border: 1px solid rgba(149,217,227,.2);
+  margin: 4px 0;
+  padding: 9px 12px;
+  min-height: 19px;
+  text-shadow: none;
+  transform: none;
+  transition: background-color .14s ease, border-color .14s ease;
+}
+#menu div:hover, #menu div:focus-visible {
+  background: rgba(45,121,136,.5);
+  border-color: var(--ion-accent);
+  color: white;
+  transform: none;
+}
+#menu #start {
+  color: #08151e;
+  background: var(--ion-accent);
+  border-color: var(--ion-accent);
+  margin-bottom: 12px;
+}
+.ion-meta {
+  position: absolute;
+  z-index: 3;
+  right: 28px;
+  bottom: 24px;
+  left: 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ion-muted);
+  font: 700 10px/1.5 Arial, sans-serif;
+  letter-spacing: .15em;
+}
+.ion-meta a, #credits a {
+  color: var(--ion-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+#credits {
+  box-sizing: border-box;
+  background: #0d1a25;
+  color: #d8ecf5;
+  overflow-y: auto;
+  max-height: 100vh;
+  padding-bottom: 40px;
+}
+#credits a { position: relative; z-index: 2; }
+@media (max-height: 650px) {
+  #title { top: 2%; height: 28%; }
+  .ion-wordmark { font-size: clamp(4rem, 12vh, 8rem); }
+  .ion-subtitle { margin-top: 8px; }
+  #menucontainer { bottom: 50px; }
+  #menu div { padding: 4px 8px; margin: 2px 0; }
+}
+@media (max-width: 550px) {
+  #title { top: 9%; height: 32%; }
+  .ion-wordmark { font-size: clamp(6rem, 31vw, 11rem); }
+  .ion-subtitle { letter-spacing: .24em; }
+  #menucontainer { right: 12px; left: 12px; bottom: 70px; }
+  #menu { font-size: .9rem; }
+  .ion-meta { right: 14px; left: 14px; bottom: 15px; font-size: 9px; letter-spacing: .06em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #title, #global { animation: none !important; }
+}
