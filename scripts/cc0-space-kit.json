@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "source": "https://github.com/Hidencod/tge-assets",
+  "source_commit": "2c8950b716e6765930b2b51409c59adf3d66fd5c",
+  "original_creator": "Kenney",
+  "original_pack": "https://kenney.nl/assets/space-kit",
+  "license": "CC0-1.0",
+  "assets": [
+    {
+      "id": "craft-racer",
+      "path": "packs/space-kit/craft-racer.glb",
+      "git_blob_sha1": "74b938aa085b1f2a46efeb6d476b7545b9dec0ac",
+      "bytes": 19228
+    },
+    {
+      "id": "craft-speedera",
+      "path": "packs/space-kit/craft-speedera.glb",
+      "git_blob_sha1": "0443218295dfdea1c9063c3dbdad820895d66e5b",
+      "bytes": 20496
+    },
+    {
+      "id": "craft-speederb",
+      "path": "packs/space-kit/craft-speederb.glb",
+      "git_blob_sha1": "c0d2adf51781279a92df0d19e6cc234f0496ae43",
+      "bytes": 19140
+    },
+    {
+      "id": "hangar-largea",
+      "path": "packs/space-kit/hangar-largea.glb",
+      "git_blob_sha1": "dd12f438fe8232f818e11ba4293b31013a33c273",
+      "bytes": 25304
+    },
+    {
+      "id": "hangar-roundglass",
+      "path": "packs/space-kit/hangar-roundglass.glb",
+      "git_blob_sha1": "285b82669b7337182e401dc97149dbfbb68c671e",
+      "bytes": 10076
+    },
+    {
+      "id": "gate-complex",
+      "path": "packs/space-kit/gate-complex.glb",
+      "git_blob_sha1": "469fd6aed806aae1a327c96582de2ceeb38e9e2a",
+      "bytes": 29912
+    },
+    {
+      "id": "satellitedish-detailed",
+      "path": "packs/space-kit/satellitedish-detailed.glb",
+      "git_blob_sha1": "50dea4255734ab4d31727ec19133454f2623e5db",
+      "bytes": 26044
+    },
+    {
+      "id": "machine-generatorlarge",
+      "path": "packs/space-kit/machine-generatorlarge.glb",
+      "git_blob_sha1": "d554538771e2a5153071219baacd3b37aa61a7d4",
+      "bytes": 10220
+    },
+    {
+      "id": "platform-large",
+      "path": "packs/space-kit/platform-large.glb",
+      "git_blob_sha1": "8a65a63f8a82d9b1a039272028e1396ca57a0d5c",
+      "bytes": 6272
+    },
+    {
+      "id": "monorail-trainfront",
+      "path": "packs/space-kit/monorail-trainfront.glb",
+      "git_blob_sha1": "e100eb63ee5ed0a626c3f3eca05a39d9ffc75102",
+      "bytes": 17128
+    },
+    {
+      "id": "monorail-trackstraight",
+      "path": "packs/space-kit/monorail-trackstraight.glb",
+      "git_blob_sha1": "da9fbb00575f69e0f355d2e94e665a3b939a2926",
+      "bytes": 3772
+    },
+    {
+      "id": "supports-high",
+      "path": "packs/space-kit/supports-high.glb",
+      "git_blob_sha1": "0a235c89d8b6635dc86ba0f8560e976ce9eb4887",
+      "bytes": 20544
+    },
+    {
+      "id": "structure-detailed",
+      "path": "packs/space-kit/structure-detailed.glb",
+      "git_blob_sha1": "dc904e2011ff47f6f77cfc151dbf70ec52f4ce8d",
+      "bytes": 13944
+    },
+    {
+      "id": "rock-crystalslargea",
+      "path": "packs/space-kit/rock-crystalslargea.glb",
+      "git_blob_sha1": "b880cffcf1a219b3c64d864a94f5befae445f14f",
+      "bytes": 26160
+    }
+  ]
+}

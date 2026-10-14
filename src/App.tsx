@@ -7,6 +7,7 @@ import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 
 type CameraMode = 'CHASE' | 'NEAR';
 type Quality = 'PERFORMANCE' | 'QUALITY';
+type CraftKind = 'KESTREL'|'RACER';
 const PAINTS = [
   { name: 'ARCTIC', hex: '#e2f0ed', detail: 'CERAMIC WHITE' },
   { name: 'EMBER', hex: '#f08958', detail: 'SIGNAL ORANGE' },
@@ -51,9 +52,26 @@ export function App() {
   const input = useMemo(()=>new InputController(),[]);
   const [data,setData]=useState<RaceSnapshot>(()=>game.snapshot());
   const [cameraMode,setCameraMode]=useState<CameraMode>('CHASE');
-  const [quality,setQuality]=useState<Quality>('QUALITY');
+  const [quality,setQuality]=useState<Quality>(()=>{
+    try{
+      const choice=localStorage.getItem('ion-v4-graphics');
+      if(choice==='QUALITY'||choice==='PERFORMANCE')return choice;
+      return window.matchMedia('(pointer:coarse)').matches?'PERFORMANCE':'QUALITY';
+    }catch{return 'PERFORMANCE';}
+  });
+  const chooseQuality=useCallback((next:Quality)=>{
+    setQuality(next);
+    try{localStorage.setItem('ion-v4-graphics',next);}catch{/* optional preference */}
+  },[]);
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
+  const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
+    try {return localStorage.getItem('ion-v4-craft')==='RACER'?'RACER':'KESTREL';}catch{return 'KESTREL';}
+  });
+  const chooseCraft=useCallback((next:CraftKind)=>{
+    setCraftKind(next);
+    try{localStorage.setItem('ion-v4-craft',next);}catch{/* optional personal preference */}
+  },[]);
   const [paint,setPaint]=useState<string>(initialPaint);
   const selectPaint=useCallback((next:string)=>{
     setPaint(next);
@@ -101,7 +119,7 @@ export function App() {
           camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
           gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
           onCreated={({gl})=>{gl.toneMapping=ACESFilmicToneMapping;gl.toneMappingExposure=1.15;}}>
-          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} onSnapshot={onTelemetry}/>
+          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} craftKind={craftKind} onSnapshot={onTelemetry}/>
         </Canvas>
       </div>
       <div className="vignette" aria-hidden="true"/>
@@ -173,9 +191,13 @@ export function App() {
       {data.phase==='menu' && garage && (
         <main className="garage-panel">
           <div className="menu-rule"><span>02 — VEHICLE CUSTOMIZATION</span><span>GARAGE</span></div>
-          <p className="intro-overline">CRAFT 01 / SINGLE-SEAT CLASS</p>
-          <h2>ION <em>MK.I</em></h2>
-          <p className="intro-copy">Choose your hovercraft paint. Your selection updates the actual 3D vehicle and is saved locally on this device.</p>
+          <p className="intro-overline">HANGAR / SELECT YOUR MACHINE</p>
+          <h2>ION <em>{craftKind==='KESTREL'?'KESTREL':'RIFT'}</em></h2>
+          <p className="intro-copy">Two distinct racing hulls. Kestrel uses original detailed ION geometry; Rift adapts a verified CC0 Kenney craft. Both retain the same handling and racing rules. Color and craft choices are saved locally.</p>
+          <div className="craft-picker" role="group" aria-label="Hovercraft selection">
+            <button type="button" className={craftKind==='KESTREL'?'active':''} aria-pressed={craftKind==='KESTREL'} onClick={()=>chooseCraft('KESTREL')}><b>01 / KESTREL</b><small>ION ORIGINAL</small></button>
+            <button type="button" className={craftKind==='RACER'?'active':''} aria-pressed={craftKind==='RACER'} onClick={()=>chooseCraft('RACER')}><b>02 / RIFT</b><small>CC0 KENNEY BASE</small></button>
+          </div>
           <div className="craft-specs">
             <div><span>TOP SPEED</span><b>310 KM/H</b></div>
             <div><span>BOOST CAP</span><b>414 KM/H</b></div>
@@ -195,6 +217,19 @@ export function App() {
               </button>
             ))}
           </div>
+          <div className="graphics-choice">
+            <div className="paint-title">RENDER QUALITY <span>{quality==='QUALITY'?'REFLECTIONS / BLOOM':'OPTIMIZED / LOW EFFECTS'}</span></div>
+            <div className="craft-picker" role="group" aria-label="Graphics quality">
+              <button type="button" className={quality==='PERFORMANCE'?'active':''}
+                aria-pressed={quality==='PERFORMANCE'} onClick={()=>chooseQuality('PERFORMANCE')}>
+                <b>PERFORMANCE</b><small>REDUCED GPU LOAD</small>
+              </button>
+              <button type="button" className={quality==='QUALITY'?'active':''}
+                aria-pressed={quality==='QUALITY'} onClick={()=>chooseQuality('QUALITY')}>
+                <b>QUALITY</b><small>FULL VISUAL EFFECTS</small>
+              </button>
+            </div>
+          </div>
           <div className="garage-actions">
             <button type="button" className="cta" onClick={start}>RACE WITH THIS CRAFT <span>↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setGarage(false)}>BACK TO MAIN MENU</button>
@@ -212,7 +247,7 @@ export function App() {
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
           <div className="pause-options">
             <div className="label-line">DISPLAY</div>
-            <button type="button" className="option-button" onClick={()=>setQuality(q=>q==='QUALITY'?'PERFORMANCE':'QUALITY')}>
+            <button type="button" className="option-button" onClick={()=>chooseQuality(quality==='QUALITY'?'PERFORMANCE':'QUALITY')}>
               GRAPHICS <b>{quality} <span>↔</span></b>
             </button>
             <button type="button" className="option-button" onClick={toggleCamera}>

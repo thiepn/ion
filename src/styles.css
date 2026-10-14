@@ -213,3 +213,22 @@ h1,h2,p{margin-top:0}
   .paint-option{padding:5px 0}
   .minimap{top:100px;width:125px}
 }
+
+/* ION V4: vehicle choice stays integrated with the existing garage. */
+.craft-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0 18px}
+.craft-picker button{background:rgba(10,25,37,.78);border:1px solid rgba(150,198,211,.32);color:#c5d9e2;
+  text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:12px 14px}
+.craft-picker button.active{background:rgba(43,105,117,.48);border-color:#9af5ed;color:#ecfffc}
+.craft-picker button:hover{border-color:#b0e7e3}
+.craft-picker b{font:800 12px 'DM Sans',Arial,sans-serif;letter-spacing:.08em}
+.craft-picker small{font:700 9px 'DM Mono',monospace;color:#9bb7c4;letter-spacing:.03em}
+@media(max-height:700px){.craft-picker{margin:6px 0}.craft-picker button{padding:7px 10px;gap:3px}}
+
+/* The garage quality switch controls the actual renderer, reflected env, postprocessing,
+   and Kenney district geometry; not a cosmetic toggle. */
+.graphics-choice{margin:15px 0 5px;padding-top:11px;border-top:1px solid rgba(159,197,207,.22)}
+.graphics-choice .craft-picker{margin:10px 0}
+@media(max-height:750px){
+  .graphics-choice{margin:6px 0 0;padding-top:5px}
+  .graphics-choice .paint-title{margin-bottom:4px}
+}

@@ -1,13 +1,16 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import {
-  DoubleSide, Group, InstancedMesh, MathUtils,
+  Color, DoubleSide, Group, InstancedMesh, MathUtils,
   Object3D, Vector3, BufferGeometry, Float32BufferAttribute,
 } from 'three';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 import { ROAD_HALF_WIDTH, ribbon, trackAt } from './track';
 import { Craft } from './visuals/Craft';
 import { CircuitDressing } from './visuals/CircuitDressing';
+import { TrackInfrastructure } from './visuals/TrackInfrastructure';
+import { SpeedWake } from './visuals/SpeedWake';
+import { KenneyDistricts, KenneyRacer } from './visuals/KenneyAssets';
 import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
 
 type CameraMode = 'CHASE' | 'NEAR';
@@ -18,6 +21,7 @@ type Props = {
   paint: string;
   showcase: boolean;
   quality: 'PERFORMANCE'|'QUALITY';
+  craftKind:'KESTREL'|'RACER';
   onSnapshot: (snapshot: RaceSnapshot) => void;
 };
 
@@ -122,6 +126,9 @@ function startGate(t: number, accent: string) {
 }
 
 function CircuitDetails() {
+  const towersRef=useRef<InstancedMesh>(null);
+  const roofsRef=useRef<InstancedMesh>(null);
+  const panelsRef=useRef<InstancedMesh>(null);
   const buildingData = useMemo(() => {
     const random = seeded(734211);
     return Array.from({ length: 124 }, (_, i) => {
@@ -133,13 +140,46 @@ function CircuitDetails() {
     const width = 8 + random() * 15;
     return {
       x: position.x + right.x * distance * side,
-      y: position.y - 24 + height / 2,
+      y: -25 + height / 2,
       z: position.z + right.z * distance * side,
       width, height,
       color: i % 9 === 0 ? '#344d61' : i % 4 === 0 ? '#22394d' : '#1a293b',
     };
     });
   }, []);
+
+  const roofBuildings=useMemo(()=>buildingData.filter((_,i)=>i%3===0),[buildingData]);
+  const panelBuildings=useMemo(()=>buildingData.filter((_,i)=>i%5===0),[buildingData]);
+  useEffect(()=>{
+    const dummy=new Object3D();
+    const colored=(mesh:InstancedMesh|null, list:typeof buildingData, purpose:'tower'|'roof'|'panel')=>{
+      if(!mesh)return;
+      list.forEach((b,index)=>{
+        dummy.rotation.set(0,0,0);
+        if(purpose==='tower'){
+          dummy.position.set(b.x,b.y,b.z);
+          dummy.scale.set(b.width,b.height,b.width*.8);
+          mesh.setColorAt(index,new Color(b.color));
+        } else if(purpose==='roof'){
+          dummy.position.set(b.x,b.y+b.height*.5+.2,b.z);
+          dummy.scale.set(b.width+.5,.4,b.width*.8+.5);
+          mesh.setColorAt(index,new Color(index%2===0?'#79eff0':'#ffa36a'));
+        } else {
+          dummy.position.set(b.x,b.y,b.z+b.width*.4+.04);
+          dummy.scale.set(.22,b.height*.75,.05);
+          mesh.setColorAt(index,new Color('#506d81'));
+        }
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index,dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate=true;
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+      mesh.computeBoundingSphere();
+    };
+    colored(towersRef.current,buildingData,'tower');
+    colored(roofsRef.current,roofBuildings,'roof');
+    colored(panelsRef.current,panelBuildings,'panel');
+  },[buildingData,roofBuildings,panelBuildings]);
 
   const supports = useMemo(() => Array.from({length: 32}, (_, i) => {
     const {position} = trackAt((i + 0.2) / 32);
@@ -223,31 +263,23 @@ function CircuitDetails() {
         </mesh>
       ))}
       {farMonoliths.map((m, i) => (
-        <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -20 + m.height/2, Math.cos(m.angle)*530]}>
+        <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -25 + m.height/2, Math.cos(m.angle)*530]}>
           <boxGeometry args={[m.width, m.height, m.width * 0.7]} />
           <meshStandardMaterial color={i%3 ? '#172333' : '#263343'} metalness={0.2} roughness={0.95} />
         </mesh>
       ))}
-      {buildingData.map((b, i) => (
-        <group key={'tower'+i} position={[b.x,b.y,b.z]}>
-          <mesh castShadow={false} receiveShadow>
-            <boxGeometry args={[b.width,b.height,b.width*0.8]} />
-            <meshStandardMaterial color={b.color} metalness={0.57} roughness={0.7} />
-          </mesh>
-          {i % 3 === 0 && (
-            <mesh position={[0,b.height/2 + 0.2,0]}>
-              <boxGeometry args={[b.width + 0.5,0.4,b.width*0.8 + 0.5]} />
-              <meshBasicMaterial color={i%2===0 ? CYAN : ORANGE} toneMapped={false} />
-            </mesh>
-          )}
-          {i % 5 === 0 && (
-            <mesh position={[0,0,b.width*0.4 + 0.04]}>
-              <boxGeometry args={[0.22,b.height*0.75,0.05]} />
-              <meshBasicMaterial color="#506d81" />
-            </mesh>
-          )}
-        </group>
-      ))}
+      <instancedMesh ref={towersRef} args={[undefined,undefined,buildingData.length]} receiveShadow>
+        <boxGeometry args={[1,1,1]}/>
+        <meshStandardMaterial color="#ffffff" metalness={.57} roughness={.7}/>
+      </instancedMesh>
+      <instancedMesh ref={roofsRef} args={[undefined,undefined,roofBuildings.length]}>
+        <boxGeometry args={[1,1,1]}/>
+        <meshBasicMaterial color="#ffffff" toneMapped={false}/>
+      </instancedMesh>
+      <instancedMesh ref={panelsRef} args={[undefined,undefined,panelBuildings.length]}>
+        <boxGeometry args={[1,1,1]}/>
+        <meshStandardMaterial color="#ffffff" metalness={.48} roughness={.53}/>
+      </instancedMesh>
       <instancedMesh ref={windowRef} args={[undefined,undefined,windows.length]} frustumCulled={false}>
         <boxGeometry args={[1,1,1]}/>
         <meshBasicMaterial color="#87c3d1" toneMapped={false}/>
@@ -297,7 +329,7 @@ function AtmosphericParticles() {
   );
 }
 
-export function World({ game, input, onSnapshot, cameraMode, paint, showcase, quality }: Props) {
+export function World({ game, input, onSnapshot, cameraMode, paint, showcase, quality, craftKind }: Props) {
   const ship = useRef<Group>(null);
   const hull = useRef<Group>(null);
   const { camera } = useThree();
@@ -374,8 +406,15 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <Road/>
       <CircuitDetails/>
       <CircuitDressing/>
+      <TrackInfrastructure quality={quality}/>
+      <KenneyDistricts quality={quality}/>
       <AtmosphericParticles/>
-      <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>
+      <SpeedWake game={game} quality={quality}/>
+      {craftKind==='RACER' ? (
+        <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/> }>
+          <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>
+        </Suspense>
+      ) : <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}
       <mesh position={[-420,205,-380]}>
         <sphereGeometry args={[60,32,16]}/>
         <meshBasicMaterial color="#d99766" toneMapped={false} />
