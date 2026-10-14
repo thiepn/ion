@@ -15,6 +15,7 @@ export class ChaseRig {
   private lastMode='';
   private heading=0;
   private previousVehicle=new Vector3();
+  private recoverySerial=0;
   reset(){this.initialised=false;this.oldPhase='';this.lastMode='';}
   update(
     camera:Camera,game:RaceEngine,delta:number,
@@ -27,11 +28,16 @@ export class ChaseRig {
     const orbit=showcase&&menu;
     const angle=game.heading;
     const firstFrame=!this.initialised;
-    const teleported=!firstFrame &&
-      this.previousVehicle.distanceToSquared(game.position)>38*38;
-    this.previousVehicle.copy(game.position);
-    const modeChanged=this.lastMode!==mode;
     const phaseChanged=this.oldPhase!==phase;
+    const recovered=!firstFrame && this.recoverySerial!==game.recoveryCount;
+    const restarted=!firstFrame && phaseChanged && phase==='countdown';
+    const teleported=!firstFrame && (
+      recovered || restarted ||
+      this.previousVehicle.distanceToSquared(game.position)>38*38
+    );
+    this.previousVehicle.copy(game.position);
+    this.recoverySerial=game.recoveryCount;
+    const modeChanged=this.lastMode!==mode;
     this.lastMode=mode; this.oldPhase=phase;
 
     // The pose should not teleport on showroom/race transitions, but on a fresh

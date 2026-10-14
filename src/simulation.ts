@@ -54,7 +54,44 @@ export class InputController {
   private touchHeld = new Map<string,Set<number>>();
   private attached = false;
   private gamepadActionButtons=[false,false,false,false];
+  private gamepadIndex:number|null=null;
+  private gamepadUsedForDriving=false;
+  onGamepadDisconnect?: () => void;
+  onGamepadConnect?: () => void;
   onKeyAction?: (action: 'pause' | 'reset' | 'camera' | 'recover') => void;
+
+  private readGamepad():Gamepad|null {
+    let pads:(Gamepad|null)[]=[];
+    try {
+      pads=typeof navigator.getGamepads==='function'?
+        Array.from(navigator.getGamepads()):[];
+    }catch{pads=[];}
+    const current=this.gamepadIndex===null?null:pads[this.gamepadIndex];
+    if(current?.connected)return current;
+    if(this.gamepadIndex!==null){
+      this.gamepadIndex=null;
+      this.gamepadActionButtons.fill(false);
+      const wasDriving=this.gamepadUsedForDriving;
+      this.gamepadUsedForDriving=false;
+      if(wasDriving)this.onGamepadDisconnect?.();
+    }
+    const next=pads.find((p):p is Gamepad=>Boolean(p?.connected))??null;
+    if(next){
+      this.gamepadIndex=next.index;
+      // Arm the new controller from its *current* physical state.
+      // Holding Start while reconnecting must not toggle pause/restart.
+      const indices=[9,3,2,4];
+      this.gamepadActionButtons=indices.map(i=>Boolean(next.buttons[i]?.pressed));
+      this.onGamepadConnect?.();
+    }
+    return next;
+  }
+  private static axis(value:number|undefined) {
+    return Number.isFinite(value)?Math.max(-1,Math.min(1,value!)):0;
+  }
+  private static pressure(value:number|undefined) {
+    return Number.isFinite(value)?Math.max(0,Math.min(1,value!)):0;
+  }
 
   private onKeyDown = (e: KeyboardEvent) => {
     const code = e.code;
@@ -62,7 +99,8 @@ export class InputController {
     if(element instanceof HTMLElement &&
       (element.isContentEditable || ['INPUT','TEXTAREA','SELECT','BUTTON'].includes(element.tagName))) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
-    if (!e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    if(e.ctrlKey || e.altKey || e.metaKey)return;
+    if (!e.repeat) {
       if (code === 'Escape' || code === 'KeyP') this.onKeyAction?.('pause');
       if (code === 'KeyR') this.onKeyAction?.('reset');
       if (code === 'KeyV') this.onKeyAction?.('camera');
@@ -86,24 +124,26 @@ export class InputController {
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
     this.clear();
+    this.gamepadIndex=null;
+    this.gamepadUsedForDriving=false;
     this.gamepadActionButtons.fill(false);
   }
   clear() {
     this.held.clear();
     this.touchHeld.clear();
   }
-  /** Called even while paused so gamepad Start can resume a race. */
+  /** Poll actions even while paused, with reconnect-safe edge detection. */
   pollGamepadActions() {
-    let pad: Gamepad | null = null;
-    try {
-      pad=typeof navigator.getGamepads==='function'?
-        Array.from(navigator.getGamepads()).find((p):p is Gamepad=>Boolean(p)) ?? null:null;
-    }catch { pad=null; }
-    const indices=[9,3,2,4]; // Start/Pause, Y/Camera, X/Reset, LB/Recover
+    const pad=this.readGamepad();
+    if(!pad)return;
+    const indices=[9,3,2,4]; // Start / Y / X / LB
     const actions=['pause','camera','reset','recover'] as const;
     indices.forEach((index,i)=>{
-      const pressed=Boolean(pad?.buttons[index]?.pressed);
-      if(pressed&&!this.gamepadActionButtons[i])this.onKeyAction?.(actions[i]);
+      const pressed=Boolean(pad.buttons[index]?.pressed);
+      if(pressed&&!this.gamepadActionButtons[i]){
+        this.gamepadUsedForDriving=true;
+        this.onKeyAction?.(actions[i]);
+      }
       this.gamepadActionButtons[i]=pressed;
     });
   }
@@ -125,20 +165,20 @@ export class InputController {
     let throttle = Number(has('KeyW') || has('ArrowUp'));
     let brake = Number(has('KeyS') || has('ArrowDown'));
     let boost = has('Space') || has('ShiftLeft') || has('ShiftRight');
-    if (typeof navigator.getGamepads === 'function') {
-      // Some sandboxed/browser configurations deny Gamepad API access.
-      let pad: Gamepad | null = null;
-      try { pad=Array.from(navigator.getGamepads()).find((p):p is Gamepad=>Boolean(p)) ?? null; }
-      catch { pad=null; }
-      if (pad) {
-        const rawAxis=pad.axes[0]||0;
-        const axis=Math.abs(rawAxis)>.15?
-          Math.sign(rawAxis)*(Math.abs(rawAxis)-.15)/.85:0;
-        steer = Math.abs(axis) > Math.abs(steer) ? axis : steer;
-        throttle = Math.max(throttle, pad.buttons[7]?.value || 0, Number(Boolean(pad.buttons[0]?.pressed)));
-        brake = Math.max(brake, pad.buttons[6]?.value || 0, Number(Boolean(pad.buttons[1]?.pressed)));
-        boost = boost || Boolean(pad.buttons[5]?.pressed);
-      }
+    const pad=this.readGamepad();
+    if(pad){
+      const rawAxis=InputController.axis(pad.axes[0]);
+      const axis=Math.abs(rawAxis)>.15?
+        Math.sign(rawAxis)*(Math.abs(rawAxis)-.15)/.85:0;
+      steer=Math.abs(axis)>Math.abs(steer)?axis:steer;
+      const gas=InputController.pressure(pad.buttons[7]?.value);
+      const braking=InputController.pressure(pad.buttons[6]?.value);
+      throttle=Math.max(throttle,gas,Number(Boolean(pad.buttons[0]?.pressed)));
+      brake=Math.max(brake,braking,Number(Boolean(pad.buttons[1]?.pressed)));
+      boost=boost||Boolean(pad.buttons[5]?.pressed);
+      if(Math.abs(axis)>.08 || gas>.08 || braking>.08 || boost ||
+         pad.buttons[0]?.pressed || pad.buttons[1]?.pressed)
+        this.gamepadUsedForDriving=true;
     }
     return { throttle, brake, steer, boost };
   }
@@ -267,8 +307,15 @@ export class RaceEngine {
   start() { this.reset(); this.phase = 'countdown'; }
   restart() { this.start(); }
   pause() {
-    if (this.phase === 'racing' || this.phase === 'countdown') this.phase = 'paused';
-    else if (this.phase === 'paused') this.phase = this.count > 0 ? 'countdown' : 'racing';
+    if(this.phase==='racing'||this.phase==='countdown'){
+      this.phase='paused';
+      this.isBoosting=false;
+    }else if(this.phase==='paused'){
+      // Returning from an interrupted high-speed race should not resume at
+      // full velocity before the player can see/reacquire the controls.
+      if(this.count<=0)this.count=2.1;
+      this.phase='countdown';
+    }
   }
   menu() { this.reset(); this.phase = 'menu'; }
 
@@ -369,7 +416,6 @@ export class RaceEngine {
     this.previousT=road.t;
     const maximumProgressStep=Math.max(.006,3*this.speed*dt/TRACK_LENGTH);
     const validTravel=Math.abs(travel)<=maximumProgressStep;
-    const previousProgress=this.progress;
     if(validTravel){
       this.progress=Math.max(0,this.progress+travel);
     }
@@ -378,7 +424,9 @@ export class RaceEngine {
     // crossing it forward and in order; reverse re-crossing is not credit.
     if(validTravel && travel>0 && this.highestScoredCheckpoint<3){
       const gate=(this.highestScoredCheckpoint+1)*.25;
-      if(previousProgress<gate && this.progress>=gate){
+      // Crossing the actual source-spline gate is authoritative; the
+      // accumulated progress is display-only and may drift slightly.
+      if(previousTrackT<gate && road.t>=gate){
         const split=this.lapTime-this.sectorStartTime;
         this.sectorTimes[this.highestScoredCheckpoint]=split;
         this.lastSectorTime=split;
@@ -393,7 +441,7 @@ export class RaceEngine {
     // must cross the physical start/finish seam forward after S1-S3.
     const crossedFinish=validTravel && travel>0 &&
       previousTrackT>.95 && road.t<.05;
-    if(crossedFinish && this.highestScoredCheckpoint===3 && this.progress>=.98){
+    if(crossedFinish && this.highestScoredCheckpoint===3){
       const finalSector=this.lapTime-this.sectorStartTime;
       this.sectorTimes[3]=finalSector;
       this.lastSectorTime=finalSector;
@@ -405,7 +453,9 @@ export class RaceEngine {
       }
       this.lapTime=0;
       this.sectorStartTime=0;
-      this.progress=Math.max(0,this.progress-1);
+      // Start the next lap at the actual projected seam location, avoiding
+      // floating-point drift from previous projected travel.
+      this.progress=road.t;
       this.highestScoredCheckpoint=0;
       this.checkpoints=0;
       this.sectorTimes=[];

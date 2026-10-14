@@ -320,3 +320,21 @@ h1,h2,p{margin-top:0}
   .race-note{display:none}
   .site-footer{padding-bottom:10px}
 }
+
+/* V9 controller continuity notice; never overlays touch-driving hit targets. */
+.gamepad-notice{
+  position:absolute;z-index:16;top:80px;left:50%;transform:translateX(-50%);
+  width:min(540px,calc(100% - 34px));display:flex;align-items:center;
+  justify-content:space-between;gap:12px;padding:11px 14px;
+  border:1px solid rgba(143,216,221,.56);
+  background:rgba(8,23,37,.95);box-shadow:0 12px 35px rgba(0,0,0,.25);
+  font:600 12px/1.5 'DM Sans',Arial,sans-serif;color:#e0f4f8;
+}
+.gamepad-notice button{
+  flex:none;min-width:29px;min-height:29px;display:grid;place-items:center;
+  background:none;border:1px solid rgba(171,219,229,.5);color:#f0f9fb;font-size:19px;
+}
+@media(max-width:580px){.gamepad-notice{top:57px;font-size:11px}}
+@media(orientation:landscape) and (max-height:500px){
+ .gamepad-notice{top:40px;max-width:420px;padding:6px 9px;font-size:10px}
+}
