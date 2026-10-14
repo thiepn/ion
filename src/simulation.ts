@@ -329,9 +329,11 @@ export class RaceEngine {
     this.sectorTimes.length=gate;
     this.lastSectorTime=gate>0?this.sectorTimes[gate-1]??null:null;
     this.lastSector=gate>0?gate:null;
-    // The time penalty belongs to the current split too; otherwise the sum
-    // of displayed sector times silently diverges from the official lap time.
-    this.sectorStartTime=this.lapTime;
+    // Do not advance sectorStartTime here. It is the earned preceding gate's
+    // *actual crossing time*, so the time already spent on this incomplete
+    // sector AND the +5s recovery penalty belong to that sector. Resetting
+    // the origin would incorrectly reduce the split and make its sum differ
+    // from the official lap time.
     this.speed=0;
     this.roll=0;
     this.pitch=0;
@@ -389,7 +391,12 @@ export class RaceEngine {
     const driving = controls.throttle > 0;
     this.isBoosting = controls.boost && driving && this.boost > 0;
     if (this.isBoosting) this.boost = Math.max(0, this.boost - dt * 27);
-    else this.boost = Math.min(100, this.boost + dt * 7.5);
+    else if (!controls.boost || !driving)
+      // A held, empty boost trigger must not alternate between one free
+      // acceleration frame and one regeneration frame. Releasing boost (or
+      // throttle) is required before ordinary recharge resumes; real source
+      // pads may still refill the pool while the trigger is held.
+      this.boost = Math.min(100, this.boost + dt * 7.5);
 
     // Arcade acceleration, aerodynamic drag and stronger braking.
     // The 60 Hz fixed-step World loop is the only authoritative integrator.
@@ -628,7 +635,10 @@ export class RaceEngine {
         - this.previousT + 1) % 1) * TRACK_LENGTH)),
       nextGateLabel: this.highestScoredCheckpoint===3?'FINISH':
         'SECTOR '+(this.highestScoredCheckpoint+1),
-      progress: this.progress,
+      // HUD/minimap progress describes physical position within this lap.
+      // The separate cumulative progress accumulator stays engine-private
+      // for real pad distance/anti-farming and missed-gate recovery rules.
+      progress: this.previousT,
       isBoosting: this.isBoosting,
       impact: this.impact,
       worldX: this.position.x,
