@@ -39,10 +39,16 @@ function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'c
 }
 
 function TouchButton({ code, text, input }: { code:string; text:string; input:InputController }) {
-  const release=()=>input.release(code);
+  const release=(pointerId:number)=>input.release(code,pointerId);
   return <button className="touch-control" type="button"
-    onPointerDown={event=>{event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);input.press(code);}}
-    onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
+    onPointerDown={event=>{
+      event.preventDefault();
+      input.press(code,event.pointerId);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }}
+    onPointerUp={event=>release(event.pointerId)}
+    onPointerCancel={event=>release(event.pointerId)}
+    onLostPointerCapture={event=>release(event.pointerId)}
     aria-label={text}>{text}</button>;
 }
 
@@ -83,8 +89,16 @@ export function App() {
 
   const refresh=useCallback(()=>setData(game.snapshot()),[game]);
   const togglePause=useCallback(()=>{game.pause();refresh()},[game,refresh]);
-  const start=useCallback(()=>{game.start();setGarage(false);setHelp(false);refresh()},[game,refresh]);
-  const mainMenu=useCallback(()=>{game.menu();setGarage(false);setHelp(false);refresh()},[game,refresh]);
+  const start=useCallback(()=>{
+    input.clear();
+    game.start();
+    setGarage(false);setHelp(false);refresh();
+  },[game,input,refresh]);
+  const mainMenu=useCallback(()=>{
+    input.clear();
+    game.menu();
+    setGarage(false);setHelp(false);refresh();
+  },[game,input,refresh]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
   const recover=useCallback(()=>{
     if(game.recover())refresh();
@@ -99,7 +113,9 @@ export function App() {
       if (action==='recover') recover();
     };
     const onHidden=()=>{
-      if (document.hidden && (game.phase==='racing'||game.phase==='countdown')){
+      if(!document.hidden)return;
+      input.clear();
+      if(game.phase==='racing'||game.phase==='countdown'){
         game.pause();
         refresh();
       }
@@ -114,10 +130,11 @@ export function App() {
 
   const onTelemetry=useCallback((next:RaceSnapshot)=>setData(next),[]);
   const onRendererFailure=useCallback((message:string)=>{
+    input.clear();
     if(game.phase==='racing'||game.phase==='countdown')game.pause();
     setRendererError(message);
     refresh();
-  },[game,refresh]);
+  },[game,input,refresh]);
   const retryRenderer=useCallback(()=>{
     setRendererError(null);
     setRendererEpoch(v=>v+1);
@@ -168,7 +185,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V7 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V8 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>

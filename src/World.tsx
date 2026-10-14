@@ -44,8 +44,8 @@ function seeded(seed: number) {
   };
 }
 
-function Road() {
-  const surface=useRoadMaterials();
+function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
+  const surface=useRoadMaterials(quality);
   const dashRef=useRef<InstancedMesh>(null);
   const ribbons = useMemo(() => ({
     base: ribbon(-ROAD_HALF_WIDTH, ROAD_HALF_WIDTH, 0),
@@ -90,7 +90,7 @@ function Road() {
         <meshStandardMaterial color="#101924" roughness={0.95} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.base} receiveShadow>
-        <meshStandardMaterial color="#ffffff" map={surface.colorMap}
+        <meshStandardMaterial color={surface.colorMap?'#ffffff':'#657c86'} map={surface.colorMap}
           normalMap={surface.normalMap} roughnessMap={surface.roughnessMap}
           metalness={.27} roughness={.89} side={DoubleSide}/>
       </mesh>
@@ -423,7 +423,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
         shadow-camera-top={165} shadow-camera-bottom={-165} shadow-bias={-0.0007}
         shadow-normalBias={.04}/>
       <ReflectionEnvironment enabled={quality==='QUALITY'}/>
-      <Road/>
+      <Road quality={quality}/>
       <CircuitSurfaceDetails quality={quality}/>
       <CircuitDetails/>
       <IndustrialHorizon quality={quality}/>

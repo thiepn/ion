@@ -297,3 +297,26 @@ h1,h2,p{margin-top:0}
  .split-hud{display:none}
  .recovery-count{display:none}
 }
+
+/* V8: practical controls on coarse-pointer tablets and convertible screens. */
+@media (pointer:coarse) and (min-width:581px){
+  .touch-bar{
+    display:flex;position:absolute;left:22px;right:22px;bottom:44px;z-index:7;
+    justify-content:space-between;align-items:flex-end;gap:18px;pointer-events:none;
+  }
+  .touch-group{display:flex;gap:10px;pointer-events:auto}
+  .touch-control{
+    min-width:66px;height:68px;padding:0 13px;touch-action:none;
+    color:#ecf8fc;background:rgba(8,25,39,.82);
+    border:1px solid rgba(136,223,233,.65);user-select:none;
+    font:800 13px 'DM Sans',sans-serif;
+  }
+  .touch-control:active{background:#327983}
+  .touch-recover{
+    position:absolute;bottom:81px;left:0;height:36px;min-width:90px;
+    color:#ffd2aa;border-color:#f2b588;font:700 10px 'DM Mono',monospace;
+  }
+  .race-bottom{bottom:158px}
+  .race-note{display:none}
+  .site-footer{padding-bottom:10px}
+}

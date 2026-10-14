@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber';
+import { useEffect, useState } from 'react';
 import { ACESFilmicToneMapping } from 'three';
 import { World } from './World';
 import type { InputController, RaceEngine, RaceSnapshot } from './simulation';
@@ -15,14 +16,32 @@ type Props = {
   onRendererFailure:(reason:string)=>void;
 };
 
+/** Bound the pixel cost of quality presets across high-density mobile screens,
+ * landscape rotation and high-resolution desktop monitors.
+ */
+function resolutionBudget(quality:Props['quality']):number {
+  if(typeof window==='undefined')return 1;
+  const pixels=Math.max(1,window.innerWidth*window.innerHeight);
+  const pixelBudget=quality==='QUALITY'?2_200_000:1_100_000;
+  const preference=Math.min(window.devicePixelRatio||1,quality==='QUALITY'?1.55:1.1);
+  return Math.min(preference,Math.max(.65,Math.sqrt(pixelBudget/pixels)));
+}
+
 /** Lazy loaded Three.js application code, separate from the lightweight UI. */
 export default function RaceStage(props:Props){
   const {quality,onRendererFailure}=props;
+  const [dpr,setDpr]=useState(()=>resolutionBudget(quality));
+  useEffect(()=>{
+    const update=()=>setDpr(resolutionBudget(quality));
+    update();
+    window.addEventListener('resize',update,{passive:true});
+    return ()=>window.removeEventListener('resize',update);
+  },[quality]);
   return (
     <Canvas
       key={quality}
       shadows={quality==='QUALITY'}
-      dpr={quality==='QUALITY'?[1,1.55]:[1,1.1]}
+      dpr={dpr}
       camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
       gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
       onCreated={({gl})=>{
