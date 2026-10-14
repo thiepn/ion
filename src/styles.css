@@ -365,3 +365,12 @@ h1,h2,p{margin-top:0}
   .track-alert strong{font-size:19px}
   .track-alert span{font-size:9px}
 }
+
+/* V13: source-spline distance to required physical checkpoint, never a guessed ETA. */
+.gate-distance{display:block;white-space:nowrap;color:#f0c49b!important;
+ font:700 10px/1.45 'DM Mono',monospace;letter-spacing:.055em;
+ font-variant-numeric:tabular-nums}
+@media(max-width:580px){.gate-distance{font-size:9px;letter-spacing:0}}
+@media(orientation:landscape) and (max-height:500px){
+ .gate-distance{display:none}
+}

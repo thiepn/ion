@@ -123,7 +123,9 @@ export function RaceLineGuidance({game,quality}:{
     if(!mesh || clock.elapsedTime-lastUpdate.current<.13)return;
     lastUpdate.current=clock.elapsedTime;
     const active=game.phase==='racing'||game.phase==='countdown';
-    const next=active?Math.min(3,game.checkpoints+1):0;
+    // Four beacon pairs correspond to the upcoming sectors 0..3. At the
+    // start of the run sector 0, not sector 1, must be the next target.
+    const next=active?Math.min(3,game.checkpoints):0;
     if(previous.current===next)return;
     previous.current=next;
     for(let i=0;i<8;i++){

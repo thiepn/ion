@@ -39,16 +39,32 @@ function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'c
 }
 
 function TouchButton({ code, text, input }: { code:string; text:string; input:InputController }) {
-  const release=(pointerId:number)=>input.release(code,pointerId);
+  const activePointers=useRef<Set<number>>(new Set());
+  const release=(pointerId:number)=>{
+    activePointers.current.delete(pointerId);
+    input.release(code,pointerId);
+  };
+  useEffect(()=>{
+    const active=activePointers.current;
+    return ()=>{
+      // Removing a captured button can omit pointerup. Release on unmount.
+      active.forEach(id=>input.release(code,id));
+      active.clear();
+    };
+  },[code,input]);
   return <button className="touch-control" type="button"
     onPointerDown={event=>{
       event.preventDefault();
+      if(event.pointerType==='mouse' && event.button!==0)return;
+      activePointers.current.add(event.pointerId);
       input.press(code,event.pointerId);
-      event.currentTarget.setPointerCapture(event.pointerId);
+      try{event.currentTarget.setPointerCapture(event.pointerId);}
+      catch{release(event.pointerId);}
     }}
     onPointerUp={event=>release(event.pointerId)}
     onPointerCancel={event=>release(event.pointerId)}
     onLostPointerCapture={event=>release(event.pointerId)}
+    onContextMenu={event=>event.preventDefault()}
     aria-label={text}>{text}</button>;
 }
 
@@ -117,14 +133,19 @@ export function App() {
     input.attach();
     input.onGamepadDisconnect=()=>{
       disconnectedController.current=true;
-      if(game.phase==='racing'||game.phase==='countdown')game.pause();
-      setGamepadNotice('Controller disconnected. Race paused; reconnect or use the keyboard.');
+      const active=game.phase==='racing'||game.phase==='countdown';
+      if(active)game.pause();
+      setGamepadNotice(active?
+        'Controller disconnected. Race paused; reconnect or use the keyboard.':
+        'Controller disconnected. Keyboard and touch controls remain available.');
       refresh();
     };
     input.onGamepadConnect=()=>{
       if(disconnectedController.current) {
         disconnectedController.current=false;
-        setGamepadNotice('Controller reconnected. Release all buttons, then resume your race.');
+        setGamepadNotice(game.phase==='paused'?
+          'Controller reconnected. Release buttons before resuming your race.':
+          'Controller reconnected. Release held buttons before driving.');
       }
     };
     input.onKeyAction=(action)=>{
@@ -231,7 +252,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V11 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V13 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
@@ -258,6 +279,9 @@ export function App() {
               <span className="eyebrow">CURRENT LAP</span>
               <strong>{String(data.lap).padStart(2,'0')}<span className="divider-text"> / 0{data.laps}</span></strong>
               <span className="quiet">SECTOR {Math.min(data.nextGate,4)} / 4</span>
+              <span className="quiet gate-distance" aria-label="Distance along track to next required gate">
+                NEXT {data.nextGateLabel} · {data.distanceToGateM} M
+              </span>
               <span className="quiet split-hud">{data.lastSectorTime===null?
                 'FIRST SPLIT PENDING':
                 `LAST S${data.lastSector} · ${formatTime(data.lastSectorTime)}`}</span>

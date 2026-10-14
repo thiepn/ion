@@ -17,6 +17,8 @@ export type RaceSnapshot = {
   boost: number;
   shield: number;
   nextGate: number;
+  distanceToGateM: number;
+  nextGateLabel: string;
   progress: number;
   isBoosting: boolean;
   impact: number;
@@ -490,14 +492,15 @@ export class RaceEngine {
 
     // Score a quarter-sector at most once in this lap, only when actually
     // crossing it forward and in order; reverse re-crossing is not credit.
-    if(validTravel && travel>0 && this.highestScoredCheckpoint<3){
+    if(travel>0 && this.highestScoredCheckpoint<3){
       const gate=(this.highestScoredCheckpoint+1)*.25;
       const onRoad=Math.abs(road.lateral)<=boundary+.05 &&
         Math.abs(roadBefore.lateral)<=boundary+.05;
       const drivingForwards=Math.cos(wrapAngle(this.heading-road.heading))>.15;
       // Time the exact physical source-spline gate crossing, interpolating
       // within the fixed step instead of quantizing every split to 16.7ms.
-      if(previousTrackT<gate && road.t>=gate && onRoad && drivingForwards){
+      if(previousTrackT<gate && road.t>=gate &&
+         validTravel && onRoad && drivingForwards){
         const ratio=Math.max(0,Math.min(1,(gate-previousTrackT)/travel));
         const crossedTime=this.lapTime-dt*(1-ratio);
         const split=Math.max(0,crossedTime-this.sectorStartTime);
@@ -507,6 +510,11 @@ export class RaceEngine {
         this.sectorStartTime=crossedTime;
         this.highestScoredCheckpoint++;
         this.missedCheckpoint=false;
+      }else if(previousTrackT<gate && road.t>=gate){
+        // The player physically passed this required gate without satisfying
+        // its forward / on-road rules; keep the credit unavailable and surface
+        // a repair action instead of silently blocking all later laps.
+        this.missedCheckpoint=true;
       }
       // A future sector marker can only be crossed after its predecessors.
       // Surface the missed gate, never invent credit for it.
@@ -525,6 +533,11 @@ export class RaceEngine {
       Math.abs(road.lateral)<=boundary+.05 &&
       Math.abs(roadBefore.lateral)<=boundary+.05 &&
       Math.cos(wrapAngle(this.heading-road.heading))>.15;
+    if(crossedFinish && this.highestScoredCheckpoint<3){
+      // Reaching the finish early must not register a lap and must tell
+      // players which earned checkpoint is missing.
+      this.missedCheckpoint=true;
+    }
     if(crossedFinish && this.highestScoredCheckpoint===3){
       // Across the wrapping seam, travel = (1-previousT) + road.t.
       // Keep the fractional remainder of this simulation step for lap 2/3.
@@ -596,6 +609,11 @@ export class RaceEngine {
       boost: Math.round(this.boost),
       shield: Math.round(this.shield),
       nextGate: this.checkpoints + 1,
+      distanceToGateM: Math.max(0,Math.round(
+        (((this.highestScoredCheckpoint===3?1:(this.highestScoredCheckpoint+1)*.25)
+        - this.previousT + 1) % 1) * TRACK_LENGTH)),
+      nextGateLabel: this.highestScoredCheckpoint===3?'FINISH':
+        'SECTOR '+(this.highestScoredCheckpoint+1),
       progress: this.progress,
       isBoosting: this.isBoosting,
       impact: this.impact,
