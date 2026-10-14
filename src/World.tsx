@@ -56,6 +56,8 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
     leftLight: ribbon(-ROAD_HALF_WIDTH + 0.8, -ROAD_HALF_WIDTH + 1.08, 0.17),
     rightLight: ribbon(ROAD_HALF_WIDTH - 1.08, ROAD_HALF_WIDTH - 0.8, 0.17),
     centerLine: ribbon(-0.09, 0.09, 0.13),
+    roadLeftStripe: ribbon(-ROAD_HALF_WIDTH+2.1,-ROAD_HALF_WIDTH+2.35,.155),
+    roadRightStripe: ribbon(ROAD_HALF_WIDTH-2.35,ROAD_HALF_WIDTH-2.1,.155),
   }), []);
   useEffect(() => () => Object.values(ribbons).forEach(g => g.dispose()), [ribbons]);
 
@@ -91,7 +93,7 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
         <meshStandardMaterial color="#101924" roughness={0.95} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.base} receiveShadow>
-        <meshStandardMaterial color={surface.colorMap?'#ffffff':'#657c86'} map={surface.colorMap}
+        <meshStandardMaterial color={surface.colorMap?'#ffffff':'#3f5561'} map={surface.colorMap}
           normalMap={surface.normalMap} roughnessMap={surface.roughnessMap}
           metalness={.27} roughness={.89} side={DoubleSide}/>
       </mesh>
@@ -108,7 +110,13 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
         <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.centerLine}>
-        <meshBasicMaterial color="#6a899a" side={DoubleSide} />
+        <meshBasicMaterial color="#819ca3" side={DoubleSide} />
+      </mesh>
+      <mesh geometry={ribbons.roadLeftStripe}>
+        <meshBasicMaterial color="#b5e7df" side={DoubleSide} toneMapped={false}/>
+      </mesh>
+      <mesh geometry={ribbons.roadRightStripe}>
+        <meshBasicMaterial color="#b5e7df" side={DoubleSide} toneMapped={false}/>
       </mesh>
       <instancedMesh ref={dashRef} args={[undefined,undefined,dashes.length]}>
         <boxGeometry args={[.19,.025,2.4]}/>
@@ -431,11 +439,11 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
 
   return (
     <>
-      <color attach="background" args={['#090f1b']}/>
+      <color attach="background" args={['#0b1421']}/>
       <IndustrialSky/>
-      <fogExp2 attach="fog" args={['#111c2c',0.0016]}/>
-      <hemisphereLight args={['#b7daf4','#27303e',quality==='QUALITY'?1.38:1.65]}/>
-      <ambientLight intensity={quality==='QUALITY'?.32:.5} color="#7a99b9"/>
+      <fogExp2 attach="fog" args={['#142034',0.00115]}/>
+      <hemisphereLight args={['#d0e9f0','#293c4c',quality==='QUALITY'?1.65:1.82]}/>
+      <ambientLight intensity={quality==='QUALITY'?.42:.58} color="#9fc1d2"/>
       <directionalLight color="#ffcca8" intensity={quality==='QUALITY'?2.75:2.3}
         position={[110,180,-100]} castShadow={quality==='QUALITY'}
         shadow-mapSize={[2048,2048]} shadow-camera-left={-165} shadow-camera-right={165}
