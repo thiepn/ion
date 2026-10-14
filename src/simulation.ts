@@ -51,6 +51,9 @@ export class InputController {
 
   private onKeyDown = (e: KeyboardEvent) => {
     const code = e.code;
+    const element=e.target;
+    if(element instanceof HTMLElement &&
+      (element.isContentEditable || ['INPUT','TEXTAREA','SELECT','BUTTON'].includes(element.tagName))) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     if (!e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey) {
       if (code === 'Escape' || code === 'KeyP') this.onKeyAction?.('pause');
@@ -85,7 +88,10 @@ export class InputController {
     let brake = Number(keys.has('KeyS') || keys.has('ArrowDown'));
     let boost = keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight');
     if (typeof navigator.getGamepads === 'function') {
-      const pad = Array.from(navigator.getGamepads()).find(Boolean);
+      // Some sandboxed/browser configurations deny Gamepad API access.
+      let pad: Gamepad | null = null;
+      try { pad=Array.from(navigator.getGamepads()).find((p):p is Gamepad=>Boolean(p)) ?? null; }
+      catch { pad=null; }
       if (pad) {
         const axis = Math.abs(pad.axes[0] || 0) > 0.15 ? pad.axes[0] : 0;
         steer = Math.abs(axis) > Math.abs(steer) ? axis : steer;
@@ -125,6 +131,7 @@ export class RaceEngine {
   impact = 0;
   private wallCooldown = 0;
   private usedBoostPad = -1;
+  private lastBoostPadDistance = -1;
 
   reset() {
     this.position.copy(trackAt(0).position);
@@ -147,6 +154,7 @@ export class RaceEngine {
     this.count = 3.5;
     this.wallCooldown = 0;
     this.usedBoostPad = -1;
+    this.lastBoostPadDistance = -1;
     this.impact = 0;
   }
   start() { this.reset(); this.phase = 'countdown'; }
@@ -203,12 +211,18 @@ export class RaceEngine {
       this.position.x = road.centerX + road.rightX * boundary * side;
       this.position.z = road.centerZ + road.rightZ * boundary * side;
       if (this.wallCooldown <= 0 && this.speed > 12) {
-        this.speed *= 0.63;
-        this.shield = Math.max(0, this.shield - 13);
-        this.wallCooldown = 0.58;
+        // Resolve a real impact once, not exponential drag every frame while
+        // the craft is touching a rail. Damage scales with actual impact speed.
+        const impactSpeed = this.speed;
+        this.speed *= 0.69;
+        this.shield = Math.max(0, this.shield - Math.max(8, Math.min(19, 6 + impactSpeed * .115)));
+        this.wallCooldown = 0.64;
         this.impact = 1;
       }
-      this.heading = wrapAngle(this.heading + wrapAngle(road.heading - this.heading) * Math.min(1, dt * 5));
+      // Redirect velocity along the track so a steering-locked player can
+      // escape a guardrail rather than losing speed on every 60 Hz tick.
+      this.heading = wrapAngle(this.heading +
+        wrapAngle(road.heading - this.heading) * Math.min(1, dt * 13));
       if (this.shield <= 0) {
         this.phase = 'finished';
         this.reason = 'destroyed';
@@ -248,10 +262,17 @@ export class RaceEngine {
     // Three track boost pads. Each is triggered once per crossing.
     const pads = [0.16, 0.48, 0.80];
     const nearestPad = pads.findIndex(t => Math.abs(road.t - t) < 0.009);
-    if (nearestPad >= 0 && this.usedBoostPad !== nearestPad) {
+    const distance = (this.lap - 1) + this.progress;
+    // Pads are three physical centered strips, not a full-width invisible
+    // reward zone; no farming energy by rocking backward across their edges.
+    const onPad = nearestPad >= 0 && Math.abs(road.lateral) < 8.25 &&
+      travel > 0 && this.speed > 8;
+    if (onPad && this.usedBoostPad !== nearestPad &&
+      distance - this.lastBoostPadDistance > .12) {
       this.boost = Math.min(100, this.boost + 24);
       this.speed = Math.min(112, this.speed + 16);
       this.usedBoostPad = nearestPad;
+      this.lastBoostPadDistance = distance;
     } else if (nearestPad === -1) {
       this.usedBoostPad = -1;
     }

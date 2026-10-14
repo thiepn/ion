@@ -232,3 +232,20 @@ h1,h2,p{margin-top:0}
   .graphics-choice{margin:6px 0 0;padding-top:5px}
   .graphics-choice .paint-title{margin-bottom:4px}
 }
+
+/* V5: actionable GPU recovery above the scene and all racing overlays. */
+.renderer-recovery{
+  position:absolute;z-index:30;top:50%;left:50%;
+  transform:translate(-50%,-50%);width:min(520px,calc(100% - 36px));
+  padding:clamp(22px,4vw,42px);border:1px solid rgba(143,216,221,.5);
+  background:#0b1825;color:#e5f7fa;box-shadow:0 0 0 200vw rgba(3,7,14,.78),0 30px 100px #0008;
+}
+.renderer-recovery h2{
+  margin:24px 0 12px;
+  font:800 clamp(40px,6vw,65px)/.94 'Barlow Condensed',Impact,sans-serif;
+  letter-spacing:-.02em;
+}
+.renderer-recovery p{font:400 14px/1.65 'DM Sans',Arial,sans-serif;color:#b2cbd5}
+.renderer-recovery .renderer-detail{font:12px/1.5 'DM Mono',monospace;color:#efa677;max-height:80px;overflow:auto;word-break:break-word}
+.renderer-recovery button{margin-top:10px}
+@media(max-height:580px){.renderer-recovery{top:49%;padding:20px}.renderer-recovery h2{margin:13px 0 7px}}

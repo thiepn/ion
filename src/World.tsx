@@ -1,7 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import {
-  Color, DoubleSide, Group, InstancedMesh, MathUtils,
+  Color, DoubleSide, Group, InstancedMesh,
   Object3D, Vector3, BufferGeometry, Float32BufferAttribute,
 } from 'three';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
@@ -10,6 +10,10 @@ import { Craft } from './visuals/Craft';
 import { CircuitDressing } from './visuals/CircuitDressing';
 import { TrackInfrastructure } from './visuals/TrackInfrastructure';
 import { SpeedWake } from './visuals/SpeedWake';
+import { RaceLineGuidance } from './visuals/RaceLineGuidance';
+import { IndustrialHorizon } from './visuals/IndustrialHorizon';
+import { IndustrialSky } from './visuals/IndustrialSky';
+import { ChaseRig } from './visuals/ChaseRig';
 import { KenneyDistricts, KenneyRacer } from './visuals/KenneyAssets';
 import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
 
@@ -39,6 +43,7 @@ function seeded(seed: number) {
 
 function Road() {
   const surface=useRoadMaterials();
+  const dashRef=useRef<InstancedMesh>(null);
   const ribbons = useMemo(() => ({
     base: ribbon(-ROAD_HALF_WIDTH, ROAD_HALF_WIDTH, 0),
     underside: ribbon(-ROAD_HALF_WIDTH - 1.1, ROAD_HALF_WIDTH + 1.1, -0.95),
@@ -61,6 +66,21 @@ function Road() {
     });
   }, []);
 
+  useEffect(()=>{
+    const instanced=dashRef.current;
+    if(!instanced)return;
+    const dummy=new Object3D();
+    for(let i=0;i<dashes.length;i++){
+      const dash=dashes[i];
+      dummy.position.set(...dash.position);
+      dummy.rotation.set(...dash.rotation);
+      dummy.scale.set(1,1,1);
+      dummy.updateMatrix();
+      instanced.setMatrixAt(i,dummy.matrix);
+    }
+    instanced.instanceMatrix.needsUpdate=true;
+    instanced.computeBoundingSphere();
+  },[dashes]);
   return (
     <group>
       <mesh geometry={ribbons.underside} receiveShadow>
@@ -86,12 +106,10 @@ function Road() {
       <mesh geometry={ribbons.centerLine}>
         <meshBasicMaterial color="#6a899a" side={DoubleSide} />
       </mesh>
-      {dashes.map((dash, i) => (
-        <mesh key={i} position={dash.position} rotation={dash.rotation}>
-          <boxGeometry args={[0.19, 0.025, 2.4]} />
-          <meshBasicMaterial color="#aac0d0" />
-        </mesh>
-      ))}
+      <instancedMesh ref={dashRef} args={[undefined,undefined,dashes.length]}>
+        <boxGeometry args={[.19,.025,2.4]}/>
+        <meshBasicMaterial color="#aac0d0"/>
+      </instancedMesh>
     </group>
   );
 }
@@ -126,6 +144,7 @@ function startGate(t: number, accent: string) {
 }
 
 function CircuitDetails() {
+  const supportRef=useRef<InstancedMesh>(null);
   const towersRef=useRef<InstancedMesh>(null);
   const roofsRef=useRef<InstancedMesh>(null);
   const panelsRef=useRef<InstancedMesh>(null);
@@ -186,6 +205,21 @@ function CircuitDetails() {
     const height = Math.max(5, position.y + 25);
     return {x:position.x, y: -25 + height * 0.5, z:position.z, height};
   }), []);
+
+  useEffect(()=>{
+    const mesh=supportRef.current;
+    if(!mesh)return;
+    const dummy=new Object3D();
+    supports.forEach((support,i)=>{
+      dummy.position.set(support.x,support.y,support.z);
+      dummy.rotation.set(0,0,0);
+      dummy.scale.set(1, support.height, 1);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i,dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate=true;
+    mesh.computeBoundingSphere();
+  },[supports]);
 
   // Thousands of emissive surface details in one draw call, not separate meshes.
   const windows = useMemo(() => {
@@ -256,12 +290,10 @@ function CircuitDetails() {
         <planeGeometry args={[1700, 1700]} />
         <meshStandardMaterial color="#101b2b" metalness={0.18} roughness={0.94} />
       </mesh>
-      {supports.map((support, i) => (
-        <mesh key={'support'+i} position={[support.x,support.y,support.z]} receiveShadow>
-          <cylinderGeometry args={[2.8,3.7,support.height,8]}/>
-          <meshStandardMaterial color="#243545" metalness={0.6} roughness={0.67}/>
-        </mesh>
-      ))}
+      <instancedMesh ref={supportRef} args={[undefined,undefined,supports.length]} receiveShadow>
+        <cylinderGeometry args={[2.8,3.7,1,8]}/>
+        <meshStandardMaterial color="#243545" metalness={.6} roughness={.67}/>
+      </instancedMesh>
       {farMonoliths.map((m, i) => (
         <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -25 + m.height/2, Math.cos(m.angle)*530]}>
           <boxGeometry args={[m.width, m.height, m.width * 0.7]} />
@@ -333,11 +365,13 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
   const ship = useRef<Group>(null);
   const hull = useRef<Group>(null);
   const { camera } = useThree();
-  const desiredCamera = useMemo(()=>new Vector3(),[]);
-  const focus = useMemo(()=>new Vector3(),[]);
+  const cameraRig = useMemo(()=>new ChaseRig(),[]);
+  const prefersReducedMotion = useMemo(() => {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch { return false; }
+  },[]);
   const lastReport = useRef(0);
   const fixedAccumulator = useRef(0);
-  const initialised = useRef(false);
 
   useFrame(({ clock }, dt) => {
     // Deterministic 60 Hz simulation independent of monitor refresh.
@@ -355,8 +389,6 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       fixedAccumulator.current = 0;
     }
     const h = game.heading;
-    const forwardX = Math.sin(h);
-    const forwardZ = Math.cos(h);
     if (ship.current) {
       ship.current.position.copy(game.position);
       ship.current.rotation.y = h;
@@ -366,27 +398,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       hull.current.rotation.z = game.roll;
       hull.current.rotation.x = game.pitch + Math.sin(clock.elapsedTime * 4) * 0.012;
     }
-    const distance = cameraMode === 'NEAR' ? 9 : 18;
-    if (showcase && game.phase === 'menu') {
-      const theta = clock.elapsedTime * 0.22;
-      desiredCamera.set(game.position.x + Math.sin(theta) * 14, game.position.y + 6.8, game.position.z + Math.cos(theta) * 14);
-      focus.set(game.position.x, game.position.y + 0.5, game.position.z);
-    } else {
-      desiredCamera.set(game.position.x - forwardX*distance, game.position.y + (cameraMode==='NEAR'?4.4:8.8),game.position.z-forwardZ*distance);
-      focus.set(game.position.x + forwardX*12,game.position.y+2,game.position.z + forwardZ*12);
-    }
-    if (!initialised.current) {
-      camera.position.copy(desiredCamera);
-      initialised.current = true;
-    } else {
-      camera.position.lerp(desiredCamera,1-Math.exp(-dt*4.7));
-    }
-    camera.lookAt(focus);
-    if ('fov' in camera && typeof camera.fov === 'number') {
-      const wanted = (cameraMode === 'NEAR' ? 67 : 62) + Math.min(game.speed/8,12);
-      camera.fov = MathUtils.lerp(camera.fov,wanted,Math.min(1,dt*3));
-      camera.updateProjectionMatrix();
-    }
+    cameraRig.update(camera,game,dt,cameraMode,showcase,clock.elapsedTime,prefersReducedMotion);
     if (clock.elapsedTime - lastReport.current > 0.1) {
       lastReport.current = clock.elapsedTime;
       onSnapshot(game.snapshot());
@@ -396,16 +408,21 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
   return (
     <>
       <color attach="background" args={['#090f1b']}/>
+      <IndustrialSky/>
       <fogExp2 attach="fog" args={['#111c2c',0.0016]}/>
-      <hemisphereLight args={['#b7daf4','#27303e',1.45]}/>
-      <ambientLight intensity={0.36} color="#7a99b9"/>
-      <directionalLight color="#ffcca8" intensity={3.1} position={[110,180,-100]} castShadow
-        shadow-mapSize={[2048,2048]} shadow-camera-left={-240} shadow-camera-right={240}
-        shadow-camera-top={240} shadow-camera-bottom={-240} shadow-bias={-0.001}/>
+      <hemisphereLight args={['#b7daf4','#27303e',quality==='QUALITY'?1.38:1.65]}/>
+      <ambientLight intensity={quality==='QUALITY'?.32:.5} color="#7a99b9"/>
+      <directionalLight color="#ffcca8" intensity={quality==='QUALITY'?2.75:2.3}
+        position={[110,180,-100]} castShadow={quality==='QUALITY'}
+        shadow-mapSize={[2048,2048]} shadow-camera-left={-165} shadow-camera-right={165}
+        shadow-camera-top={165} shadow-camera-bottom={-165} shadow-bias={-0.0007}
+        shadow-normalBias={.04}/>
       <ReflectionEnvironment enabled={quality==='QUALITY'}/>
       <Road/>
       <CircuitDetails/>
+      <IndustrialHorizon quality={quality}/>
       <CircuitDressing/>
+      <RaceLineGuidance game={game} quality={quality}/>
       <TrackInfrastructure quality={quality}/>
       <KenneyDistricts quality={quality}/>
       <AtmosphericParticles/>
@@ -415,10 +432,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
           <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>
         </Suspense>
       ) : <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}
-      <mesh position={[-420,205,-380]}>
-        <sphereGeometry args={[60,32,16]}/>
-        <meshBasicMaterial color="#d99766" toneMapped={false} />
-      </mesh>
+
       {quality==='QUALITY' && <CinematicEffects/>}
     </>
   );
