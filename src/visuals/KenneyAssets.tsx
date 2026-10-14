@@ -108,9 +108,33 @@ function SceneryObject({item}: {item:Placement}) {
   const x=position.x+right.x*item.side*item.distance;
   const z=position.z+right.z*item.side*item.distance;
   const angle=Math.atan2(tangent.x,tangent.z) + (item.headingOffset||0);
-  return <KenneyModel asset={item.asset} width={item.width}
-    position={[x,position.y-12+(item.raise||0),z]}
-    rotation={[0,angle,0]}/>;
+  // These districts occupy elevated service platforms with real structural
+  // supports down to the ground plane, never bare models floating in mid-air.
+  const deckY=position.y-12+(item.raise||0);
+  const columnHeight=Math.max(1,deckY+25);
+  const deckWidth=item.width*1.32;
+  return (
+    <group>
+      <group position={[x,deckY-.95,z]} rotation={[0,angle,0]}>
+        <mesh receiveShadow castShadow>
+          <boxGeometry args={[deckWidth,1.9,deckWidth*.92]}/>
+          <meshStandardMaterial color="#1d3442" roughness={.48} metalness={.65}/>
+        </mesh>
+        {[-1,1].map(side=>(
+          <mesh key={side} position={[side*(deckWidth*.48),.98,0]}>
+            <boxGeometry args={[.24,.12,deckWidth*.84]}/>
+            <meshBasicMaterial color="#65dce8" toneMapped={false}/>
+          </mesh>
+        ))}
+      </group>
+      <mesh position={[x,-25+columnHeight/2,z]} castShadow>
+        <cylinderGeometry args={[Math.max(2,item.width*.12),Math.max(3,item.width*.17),columnHeight,8]}/>
+        <meshStandardMaterial color="#253946" roughness={.58} metalness={.65}/>
+      </mesh>
+      <KenneyModel asset={item.asset} width={item.width}
+        position={[x,deckY,z]} rotation={[0,angle,0]}/>
+    </group>
+  );
 }
 
 /** Non-colliding distant craft traffic in aerial lanes separate from the track. */

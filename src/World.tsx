@@ -135,7 +135,7 @@ function CircuitDetails() {
     const width = 8 + random() * 15;
     return {
       x: position.x + right.x * distance * side,
-      y: position.y - 24 + height / 2,
+      y: -25 + height / 2,
       z: position.z + right.z * distance * side,
       width, height,
       color: i % 9 === 0 ? '#344d61' : i % 4 === 0 ? '#22394d' : '#1a293b',
@@ -225,7 +225,7 @@ function CircuitDetails() {
         </mesh>
       ))}
       {farMonoliths.map((m, i) => (
-        <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -20 + m.height/2, Math.cos(m.angle)*530]}>
+        <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -25 + m.height/2, Math.cos(m.angle)*530]}>
           <boxGeometry args={[m.width, m.height, m.width * 0.7]} />
           <meshStandardMaterial color={i%3 ? '#172333' : '#263343'} metalness={0.2} roughness={0.95} />
         </mesh>
