@@ -33,3 +33,16 @@ These are professionally authored **stylized low-poly** models, not a turnkey AA
 Rendered model scale, orientation, occlusion, collision visual alignment and real-device FPS require interactive browser verification; successful deployment alone does not qualify gameplay. CC0 scenery is **visual only** and does not alter checkpoint or collision truth.
 
 V4 should remain a draft child of V3 until it genuinely outperforms the existing playable V2/V3 previews and passes real-device acceptance.
+
+## Continued V4 scene construction
+
+This subsequent implementation directly extends the existing **V4 child branch**, rather than making another copy of the stacked draft PR.
+
+- `src/visuals/TrackInfrastructure.tsx`: additional original structural deck ribs, undercarriage struts and conduits, in-road luminous guidance markers, and three architectural enclosed canopy sections. All spans, placements and orientations are sampled from ION's existing track spline. Everything uses a handful of instanced mesh batches with different geometry and materials rather than creating hundreds of bespoke meshes.
+- `src/visuals/SpeedWake.tsx`: GPU-instanced visual-only speed cues with low/high preset capacities. They follow the real hovercraft position and heading and disappear when the race is not in motion; no gameplay values or collision behavior are changed.
+- `src/World.tsx`: replaces 124 independent city tower meshes, roof elements and architectural face features with colored `InstancedMesh` geometry and adds the new course visual systems. The original data-driven city layout and windows remain.
+- `src/App.tsx` and `src/styles.css`: exposes a real graphics-preset selector inside the garage, persists the selection locally and defaults coarse-pointer devices to the lower GPU preset. It controls the actual renderer/district/effects, not a cosmetic badge.
+
+**Asset license scope:** No additional external models, images, sounds, textures or shaders were copied for this continued V4 work. It uses only independently written Three.js geometry and the 14 previously pinned CC0 Kenney models listed in the immutable asset manifest. The licensing and rights boundaries above remain unchanged.
+
+**Performance status:** The increased detail is batched with instancing and the performance preset reduces graphics effects and scene dressing, but actual draw-call/FPS/GPU measurements and browser playthroughs remain unverified. A successful Cloudflare build only verifies compilation, asset hashing and successful static upload.

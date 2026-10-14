@@ -223,3 +223,12 @@ h1,h2,p{margin-top:0}
 .craft-picker b{font:800 12px 'DM Sans',Arial,sans-serif;letter-spacing:.08em}
 .craft-picker small{font:700 9px 'DM Mono',monospace;color:#9bb7c4;letter-spacing:.03em}
 @media(max-height:700px){.craft-picker{margin:6px 0}.craft-picker button{padding:7px 10px;gap:3px}}
+
+/* The garage quality switch controls the actual renderer, reflected env, postprocessing,
+   and Kenney district geometry; not a cosmetic toggle. */
+.graphics-choice{margin:15px 0 5px;padding-top:11px;border-top:1px solid rgba(159,197,207,.22)}
+.graphics-choice .craft-picker{margin:10px 0}
+@media(max-height:750px){
+  .graphics-choice{margin:6px 0 0;padding-top:5px}
+  .graphics-choice .paint-title{margin-bottom:4px}
+}

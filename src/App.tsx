@@ -52,7 +52,17 @@ export function App() {
   const input = useMemo(()=>new InputController(),[]);
   const [data,setData]=useState<RaceSnapshot>(()=>game.snapshot());
   const [cameraMode,setCameraMode]=useState<CameraMode>('CHASE');
-  const [quality,setQuality]=useState<Quality>('QUALITY');
+  const [quality,setQuality]=useState<Quality>(()=>{
+    try{
+      const choice=localStorage.getItem('ion-v4-graphics');
+      if(choice==='QUALITY'||choice==='PERFORMANCE')return choice;
+      return window.matchMedia('(pointer:coarse)').matches?'PERFORMANCE':'QUALITY';
+    }catch{return 'PERFORMANCE';}
+  });
+  const chooseQuality=useCallback((next:Quality)=>{
+    setQuality(next);
+    try{localStorage.setItem('ion-v4-graphics',next);}catch{/* optional preference */}
+  },[]);
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
@@ -207,6 +217,19 @@ export function App() {
               </button>
             ))}
           </div>
+          <div className="graphics-choice">
+            <div className="paint-title">RENDER QUALITY <span>{quality==='QUALITY'?'REFLECTIONS / BLOOM':'OPTIMIZED / LOW EFFECTS'}</span></div>
+            <div className="craft-picker" role="group" aria-label="Graphics quality">
+              <button type="button" className={quality==='PERFORMANCE'?'active':''}
+                aria-pressed={quality==='PERFORMANCE'} onClick={()=>chooseQuality('PERFORMANCE')}>
+                <b>PERFORMANCE</b><small>REDUCED GPU LOAD</small>
+              </button>
+              <button type="button" className={quality==='QUALITY'?'active':''}
+                aria-pressed={quality==='QUALITY'} onClick={()=>chooseQuality('QUALITY')}>
+                <b>QUALITY</b><small>FULL VISUAL EFFECTS</small>
+              </button>
+            </div>
+          </div>
           <div className="garage-actions">
             <button type="button" className="cta" onClick={start}>RACE WITH THIS CRAFT <span>↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setGarage(false)}>BACK TO MAIN MENU</button>
@@ -224,7 +247,7 @@ export function App() {
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
           <div className="pause-options">
             <div className="label-line">DISPLAY</div>
-            <button type="button" className="option-button" onClick={()=>setQuality(q=>q==='QUALITY'?'PERFORMANCE':'QUALITY')}>
+            <button type="button" className="option-button" onClick={()=>chooseQuality(quality==='QUALITY'?'PERFORMANCE':'QUALITY')}>
               GRAPHICS <b>{quality} <span>↔</span></b>
             </button>
             <button type="button" className="option-button" onClick={toggleCamera}>
