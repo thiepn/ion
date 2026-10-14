@@ -7,14 +7,25 @@ export const ROAD_HALF_WIDTH = 13;
 export const SEGMENTS = 480;
 
 /**
- * ION's first independently authored closed circuit.
- * Track geometry, collision and lap progress all refer to the same centerline.
+ * V17 NIGHTSHIFT / renewed driving circuit. A sweeping opening sector, an
+ * east-side chicane, elevated north crest and broad west-side switchbacks.
+ * Source-controlled centerline remains the single owner for mesh, camera
+ * lookahead, collisions, checkpoint authority, minimap and boost pads.
+ *
+ * Authored control vertices are intentionally separated: road branches do
+ * not intersect, leaving collision projection and earned gates unambiguous.
+ * Earlier circuit art and best-lap records remain available in Git history
+ * and the untouched ion-v2-best-lap localStorage entry.
  */
 const points = [
-  [0, 14, -146], [82, 16, -142], [162, 24, -98],
-  [187, 20, -17], [148, 14, 84], [58, 12, 153],
-  [-32, 15, 163], [-125, 27, 123], [-178, 21, 44],
-  [-167, 12, -56], [-93, 13, -132],
+  [0, 19, -175], [55, 13, -205], [115, 12, -199],
+  [152, 14, -152], [161, 16, -93], [164, 15, -44],
+  [170, 12, 0], [168, 11, 45], [154, 16, 89],
+  [137, 23, 137], [109, 28, 188], [59, 26, 219],
+  [0, 19, 205], [-43, 13, 162], [-75, 12, 130],
+  [-117, 14, 117], [-168, 16, 97], [-203, 15, 54],
+  [-210, 12, 0], [-199, 11, -53], [-175, 16, -101],
+  [-132, 23, -132], [-81, 28, -141], [-40, 26, -148],
 ].map(([x, y, z]) => new Vector3(x, y, z));
 
 export const TRACK_CURVE = new CatmullRomCurve3(points, true, 'catmullrom', 0.38);

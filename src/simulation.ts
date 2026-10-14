@@ -35,7 +35,9 @@ export type RaceSnapshot = {
 };
 
 const MAX_LAPS = 3;
-const STORAGE_KEY = 'ion-v2-best-lap';
+// A materially different V17 circuit cannot share comparable lap records
+// with the original Nightshift track. Older local records remain untouched.
+const STORAGE_KEY = 'ion-v17-nightshift-best-lap';
 
 function readBestLap(): number | null {
   try {
@@ -417,15 +419,20 @@ export class RaceEngine {
     // works with continuous gamepad axes without introducing a second physics
     // authority. Braking helps rotate tightly at the apex.
     const desiredSteering=Math.max(-1,Math.min(1,controls.steer));
-    const filter=1-Math.exp(-dt*(desiredSteering===0?8.3:11.0));
+    const filter=1-Math.exp(-dt*(desiredSteering===0?10.5:8.8));
     this.steering+=(desiredSteering-this.steering)*filter;
     const speedFactor=Math.min(this.speed/77,1);
-    const steeringRate=(.50+speedFactor*1.27)*(controls.brake>.05?1.18:1);
-    this.heading=wrapAngle(this.heading+this.steering*steeringRate*dt);
+    // With a chase camera viewing along the craft's +Z, projected screen
+    // right is -X in Three's right-handed scene. A *negative* yaw moves
+    // toward the player's screen right. The old positive sign flipped both
+    // keyboard and touch steering. Brake-turning increases tight-corner
+    // authority while holding full throttle is deliberately less twitchy.
+    const steeringRate=(.70+speedFactor*.92)*(controls.brake>.05?1.48:1);
+    this.heading=wrapAngle(this.heading-this.steering*steeringRate*dt);
     const roadBefore=nearestTrack(this.position.x,this.position.z,this.previousT);
     // Gentle tangent alignment only when steering is almost neutral; the
     // player always retains deliberate cornering control.
-    const assist=.16+(1-Math.abs(this.steering))*.26;
+    const assist=.21+(1-Math.abs(this.steering))*.37;
     this.heading=wrapAngle(this.heading+
       wrapAngle(roadBefore.heading-this.heading)*dt*assist*Math.min(this.speed/38,1));
 
