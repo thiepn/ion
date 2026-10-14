@@ -25,28 +25,28 @@ function maps(size:number) {
   let seed=40217;
   const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
 
-  c.fillStyle='#77868e';
+  c.fillStyle='#304450';
   c.fillRect(0,0,size,size);
   // Modular dark basalt panels with subtle repeats along the entire racing line.
   for (let stripe=0;stripe<4;stripe++) {
     const yy=stripe*panel;
-    c.fillStyle= stripe%2===0?'#7c8991':'#718087';
+    c.fillStyle= stripe%2===0?'#334753':'#2c404b';
     c.fillRect(0,yy+2,size,panel-4);
-    c.fillStyle='#465b68';
+    c.fillStyle='#142e37';
     c.fillRect(0,yy,size,2);
-    c.fillStyle='rgba(209,224,226,.18)';
+    c.fillStyle='rgba(197,237,225,.24)';
     c.fillRect(0,yy+6,size,1);
-    c.fillStyle='rgba(15,29,36,.28)';
+    c.fillStyle='rgba(8,24,30,.34)';
     c.fillRect(size/2,yy+3,1,panel-6);
     for(let j=0;j<9;j++){
-      c.fillStyle='rgba(23,49,57,.18)';
+      c.fillStyle='rgba(9,22,32,.28)';
       c.fillRect(rnd()*size,yy+rnd()*(panel-6),5+rnd()*34,.8+rnd()*2);
     }
   }
   for(let i=0;i<Math.round(11500*(size/512)**2);i++){
     const x=rnd()*size,y=rnd()*size;
     const alpha=.025+rnd()*.08;
-    c.fillStyle=rnd()>.5?'rgba(18,35,39,'+alpha+')':'rgba(230,235,238,'+alpha+')';
+    c.fillStyle=rnd()>.5?'rgba(6,20,29,'+alpha+')':'rgba(167,209,207,'+alpha+')';
     c.fillRect(x,y,.5+rnd()*1.8,.5+rnd()*2);
   }
 
