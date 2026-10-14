@@ -7,6 +7,7 @@ import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 
 type CameraMode = 'CHASE' | 'NEAR';
 type Quality = 'PERFORMANCE' | 'QUALITY';
+type CraftKind = 'KESTREL'|'RACER';
 const PAINTS = [
   { name: 'ARCTIC', hex: '#e2f0ed', detail: 'CERAMIC WHITE' },
   { name: 'EMBER', hex: '#f08958', detail: 'SIGNAL ORANGE' },
@@ -54,6 +55,13 @@ export function App() {
   const [quality,setQuality]=useState<Quality>('QUALITY');
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
+  const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
+    try {return localStorage.getItem('ion-v4-craft')==='RACER'?'RACER':'KESTREL';}catch{return 'KESTREL';}
+  });
+  const chooseCraft=useCallback((next:CraftKind)=>{
+    setCraftKind(next);
+    try{localStorage.setItem('ion-v4-craft',next);}catch{/* optional personal preference */}
+  },[]);
   const [paint,setPaint]=useState<string>(initialPaint);
   const selectPaint=useCallback((next:string)=>{
     setPaint(next);
@@ -101,7 +109,7 @@ export function App() {
           camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
           gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
           onCreated={({gl})=>{gl.toneMapping=ACESFilmicToneMapping;gl.toneMappingExposure=1.15;}}>
-          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} onSnapshot={onTelemetry}/>
+          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} craftKind={craftKind} onSnapshot={onTelemetry}/>
         </Canvas>
       </div>
       <div className="vignette" aria-hidden="true"/>
@@ -173,9 +181,13 @@ export function App() {
       {data.phase==='menu' && garage && (
         <main className="garage-panel">
           <div className="menu-rule"><span>02 — VEHICLE CUSTOMIZATION</span><span>GARAGE</span></div>
-          <p className="intro-overline">CRAFT 01 / SINGLE-SEAT CLASS</p>
-          <h2>ION <em>MK.I</em></h2>
-          <p className="intro-copy">Choose your hovercraft paint. Your selection updates the actual 3D vehicle and is saved locally on this device.</p>
+          <p className="intro-overline">HANGAR / SELECT YOUR MACHINE</p>
+          <h2>ION <em>{craftKind==='KESTREL'?'KESTREL':'RIFT'}</em></h2>
+          <p className="intro-copy">Two distinct racing hulls. Kestrel uses original detailed ION geometry; Rift adapts a verified CC0 Kenney craft. Both retain the same handling and racing rules. Color and craft choices are saved locally.</p>
+          <div className="craft-picker" role="group" aria-label="Hovercraft selection">
+            <button type="button" className={craftKind==='KESTREL'?'active':''} aria-pressed={craftKind==='KESTREL'} onClick={()=>chooseCraft('KESTREL')}><b>01 / KESTREL</b><small>ION ORIGINAL</small></button>
+            <button type="button" className={craftKind==='RACER'?'active':''} aria-pressed={craftKind==='RACER'} onClick={()=>chooseCraft('RACER')}><b>02 / RIFT</b><small>CC0 KENNEY BASE</small></button>
+          </div>
           <div className="craft-specs">
             <div><span>TOP SPEED</span><b>310 KM/H</b></div>
             <div><span>BOOST CAP</span><b>414 KM/H</b></div>

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "predev": "node scripts/sync-cc0-assets.mjs",
+    "prepare:assets": "node scripts/sync-cc0-assets.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

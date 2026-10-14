@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import {
   DoubleSide, Group, InstancedMesh, MathUtils,
   Object3D, Vector3, BufferGeometry, Float32BufferAttribute,
@@ -8,6 +8,7 @@ import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 import { ROAD_HALF_WIDTH, ribbon, trackAt } from './track';
 import { Craft } from './visuals/Craft';
 import { CircuitDressing } from './visuals/CircuitDressing';
+import { KenneyDistricts, KenneyRacer } from './visuals/KenneyAssets';
 import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
 
 type CameraMode = 'CHASE' | 'NEAR';
@@ -18,6 +19,7 @@ type Props = {
   paint: string;
   showcase: boolean;
   quality: 'PERFORMANCE'|'QUALITY';
+  craftKind:'KESTREL'|'RACER';
   onSnapshot: (snapshot: RaceSnapshot) => void;
 };
 
@@ -297,7 +299,7 @@ function AtmosphericParticles() {
   );
 }
 
-export function World({ game, input, onSnapshot, cameraMode, paint, showcase, quality }: Props) {
+export function World({ game, input, onSnapshot, cameraMode, paint, showcase, quality, craftKind }: Props) {
   const ship = useRef<Group>(null);
   const hull = useRef<Group>(null);
   const { camera } = useThree();
@@ -374,8 +376,13 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <Road/>
       <CircuitDetails/>
       <CircuitDressing/>
+      <KenneyDistricts quality={quality}/>
       <AtmosphericParticles/>
-      <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>
+      {craftKind==='RACER' ? (
+        <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/> }>
+          <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>
+        </Suspense>
+      ) : <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}
       <mesh position={[-420,205,-380]}>
         <sphereGeometry args={[60,32,16]}/>
         <meshBasicMaterial color="#d99766" toneMapped={false} />
