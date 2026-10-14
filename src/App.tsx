@@ -101,7 +101,7 @@ export function App() {
           camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
           gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
           onCreated={({gl})=>{gl.toneMapping=ACESFilmicToneMapping;gl.toneMappingExposure=1.15;}}>
-          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} onSnapshot={onTelemetry}/>
+          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} onSnapshot={onTelemetry}/>
         </Canvas>
       </div>
       <div className="vignette" aria-hidden="true"/>
