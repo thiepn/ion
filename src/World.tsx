@@ -1,11 +1,14 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  DoubleSide, Group, InstancedMesh, MathUtils, Mesh,
+  DoubleSide, Group, InstancedMesh, MathUtils,
   Object3D, Vector3, BufferGeometry, Float32BufferAttribute,
 } from 'three';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 import { ROAD_HALF_WIDTH, ribbon, trackAt } from './track';
+import { Craft } from './visuals/Craft';
+import { CircuitDressing } from './visuals/CircuitDressing';
+import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
 
 type CameraMode = 'CHASE' | 'NEAR';
 type Props = {
@@ -14,13 +17,13 @@ type Props = {
   cameraMode: CameraMode;
   paint: string;
   showcase: boolean;
+  quality: 'PERFORMANCE'|'QUALITY';
   onSnapshot: (snapshot: RaceSnapshot) => void;
 };
 
 const CYAN = '#79eff0';
 const ORANGE = '#ffa36a';
 const RAIL = '#192c3d';
-const TRACK = '#293747';
 
 function seeded(seed: number) {
   let v = seed >>> 0;
@@ -31,6 +34,7 @@ function seeded(seed: number) {
 }
 
 function Road() {
+  const surface=useRoadMaterials();
   const ribbons = useMemo(() => ({
     base: ribbon(-ROAD_HALF_WIDTH, ROAD_HALF_WIDTH, 0),
     underside: ribbon(-ROAD_HALF_WIDTH - 1.1, ROAD_HALF_WIDTH + 1.1, -0.95),
@@ -59,7 +63,9 @@ function Road() {
         <meshStandardMaterial color="#101924" roughness={0.95} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.base} receiveShadow>
-        <meshStandardMaterial color={TRACK} metalness={0.43} roughness={0.57} side={DoubleSide} />
+        <meshStandardMaterial color="#ffffff" map={surface.colorMap}
+          normalMap={surface.normalMap} roughnessMap={surface.roughnessMap}
+          metalness={.27} roughness={.89} side={DoubleSide}/>
       </mesh>
       <mesh geometry={ribbons.leftRail} castShadow>
         <meshStandardMaterial color={RAIL} metalness={0.68} roughness={0.35} side={DoubleSide} />
@@ -270,75 +276,6 @@ function CircuitDetails() {
   );
 }
 
-function Hovercraft({ game, shipRef, hullRef, flameRef, paint }: {
-  game: RaceEngine;
-  shipRef: React.RefObject<Group | null>;
-  hullRef: React.RefObject<Group | null>;
-  flameRef: React.RefObject<Mesh | null>;
-  paint: string;
-}) {
-  const blades = useMemo(() => {
-    const positions = [
-      [-0.9, 0.12, -0.4], [0.9, 0.12, -0.4],
-    ];
-    return positions as [number,number,number][];
-  }, []);
-
-  return (
-    <group ref={shipRef}>
-      <group ref={hullRef}>
-        <mesh position={[0, 0.12, 0]} castShadow>
-          <boxGeometry args={[2.55,0.62,4.8]} />
-          <meshPhysicalMaterial color={paint} metalness={0.75} roughness={0.29} clearcoat={0.7} />
-        </mesh>
-        <mesh position={[0, 0.15, 2.55]} rotation={[Math.PI / 2,0,0]} castShadow>
-          <coneGeometry args={[1.16,3.0,4]} />
-          <meshStandardMaterial color={paint} metalness={0.78} roughness={0.27} flatShading />
-        </mesh>
-        {[-1,1].map(side=> (
-          <group key={side}>
-            <mesh position={[side*2,0.05,-0.45]} rotation={[0,side*0.12,0]} castShadow>
-              <boxGeometry args={[2.75,0.22,2.25]} />
-              <meshStandardMaterial color="#455970" metalness={0.82} roughness={0.35} />
-            </mesh>
-            <mesh position={[side*2.3,0.19,-1.75]} castShadow>
-              <boxGeometry args={[0.48,0.64,1.85]} />
-              <meshStandardMaterial color="#ec8859" metalness={0.55} roughness={0.34} />
-            </mesh>
-            <mesh position={[side*1.05,-0.05,-2.55]} rotation={[Math.PI/2,0,0]}>
-              <cylinderGeometry args={[0.55,0.57,1.55,16]} />
-              <meshStandardMaterial color="#0a1825" metalness={0.88} roughness={0.2} />
-            </mesh>
-            <mesh position={[side*1.05,-0.05,-3.35]}>
-              <sphereGeometry args={[0.42,16,8]} />
-              <meshBasicMaterial color={game.isBoosting ? '#d7ffff' : CYAN} toneMapped={false}/>
-            </mesh>
-          </group>
-        ))}
-        <mesh position={[0,0.65,0.65]}>
-          <sphereGeometry args={[0.87,20,12]} />
-          <meshPhysicalMaterial color="#213a4e" metalness={0.68} roughness={0.16} clearcoat={1} clearcoatRoughness={0.08} />
-        </mesh>
-        <mesh position={[0,0.69,-1.85]}>
-          <boxGeometry args={[1.2,0.09,0.68]} />
-          <meshBasicMaterial color={CYAN} toneMapped={false} />
-        </mesh>
-        {blades.map((pos,i)=>(
-          <mesh key={i} position={pos}>
-            <boxGeometry args={[0.21,0.18,3.5]} />
-            <meshStandardMaterial color="#758d9e" metalness={0.7} roughness={0.4}/>
-          </mesh>
-        ))}
-        <mesh ref={flameRef} position={[0,-0.1,-4.0]} rotation={[Math.PI/2,0,0]}>
-          <coneGeometry args={[0.75,3.6,12]} />
-          <meshBasicMaterial color="#53dce8" transparent opacity={0.64} depthWrite={false} toneMapped={false}/>
-        </mesh>
-        <pointLight position={[0,0,-2.8]} color="#45dce9" intensity={4} distance={17} decay={2}/>
-      </group>
-    </group>
-  );
-}
-
 function AtmosphericParticles() {
   const geometry = useMemo(() => {
     const r = seeded(11002);
@@ -360,10 +297,9 @@ function AtmosphericParticles() {
   );
 }
 
-export function World({ game, input, onSnapshot, cameraMode, paint, showcase }: Props) {
+export function World({ game, input, onSnapshot, cameraMode, paint, showcase, quality }: Props) {
   const ship = useRef<Group>(null);
   const hull = useRef<Group>(null);
-  const flame = useRef<Mesh>(null);
   const { camera } = useThree();
   const desiredCamera = useMemo(()=>new Vector3(),[]);
   const focus = useMemo(()=>new Vector3(),[]);
@@ -397,10 +333,6 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase }: 
     if (hull.current) {
       hull.current.rotation.z = game.roll;
       hull.current.rotation.x = game.pitch + Math.sin(clock.elapsedTime * 4) * 0.012;
-    }
-    if (flame.current) {
-      flame.current.visible = game.speed > 5;
-      flame.current.scale.set(1, Math.max(0.2,game.isBoosting?1.35:0.48)+Math.sin(clock.elapsedTime * 33)*0.1, 1);
     }
     const distance = cameraMode === 'NEAR' ? 9 : 18;
     if (showcase && game.phase === 'menu') {
@@ -438,14 +370,17 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase }: 
       <directionalLight color="#ffcca8" intensity={3.1} position={[110,180,-100]} castShadow
         shadow-mapSize={[2048,2048]} shadow-camera-left={-240} shadow-camera-right={240}
         shadow-camera-top={240} shadow-camera-bottom={-240} shadow-bias={-0.001}/>
+      <ReflectionEnvironment enabled={quality==='QUALITY'}/>
       <Road/>
       <CircuitDetails/>
+      <CircuitDressing/>
       <AtmosphericParticles/>
-      <Hovercraft game={game} shipRef={ship} hullRef={hull} flameRef={flame} paint={paint}/>
+      <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>
       <mesh position={[-420,205,-380]}>
         <sphereGeometry args={[60,32,16]}/>
-        <meshBasicMaterial color="#ffaf72" toneMapped={false} />
+        <meshBasicMaterial color="#d99766" toneMapped={false} />
       </mesh>
+      {quality==='QUALITY' && <CinematicEffects/>}
     </>
   );
 }
