@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useState } from 'react';
 import { ACESFilmicToneMapping } from 'three';
 import { World } from './World';
@@ -29,6 +29,26 @@ function resolutionBudget(quality:Props['quality']):number {
   return Math.min(preference,Math.sqrt(pixelBudget/pixels));
 }
 
+/** The loss listener lives only as long as its particular WebGL canvas.
+ * Avoid stale events from abandoned renderers pausing a recovered race.
+ */
+function GraphicsContextObserver({onFailure}:{onFailure:(reason:string)=>void}){
+  const gl=useThree(state=>state.gl);
+  useEffect(()=>{
+    const canvas=gl.domElement;
+    let failed=false;
+    const onLost=(event:Event)=>{
+      event.preventDefault();
+      if(failed)return;
+      failed=true;
+      onFailure('The browser interrupted the WebGL graphics context');
+    };
+    canvas.addEventListener('webglcontextlost',onLost);
+    return ()=>canvas.removeEventListener('webglcontextlost',onLost);
+  },[gl,onFailure]);
+  return null;
+}
+
 /** Lazy loaded Three.js application code, separate from the lightweight UI. */
 export default function RaceStage(props:Props){
   const {quality,onRendererFailure}=props;
@@ -49,11 +69,8 @@ export default function RaceStage(props:Props){
       onCreated={({gl})=>{
         gl.toneMapping=ACESFilmicToneMapping;
         gl.toneMappingExposure=quality==='QUALITY'?1.06:1.12;
-        gl.domElement.addEventListener('webglcontextlost',event=>{
-          event.preventDefault();
-          onRendererFailure('The browser interrupted the WebGL graphics context');
-        },{once:true});
       }}>
+      <GraphicsContextObserver onFailure={onRendererFailure}/>
       <World {...props}/>
     </Canvas>
   );
