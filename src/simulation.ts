@@ -424,14 +424,19 @@ export class RaceEngine {
     // crossing it forward and in order; reverse re-crossing is not credit.
     if(validTravel && travel>0 && this.highestScoredCheckpoint<3){
       const gate=(this.highestScoredCheckpoint+1)*.25;
-      // Crossing the actual source-spline gate is authoritative; the
-      // accumulated progress is display-only and may drift slightly.
-      if(previousTrackT<gate && road.t>=gate){
-        const split=this.lapTime-this.sectorStartTime;
+      const onRoad=Math.abs(road.lateral)<=boundary+.05 &&
+        Math.abs(roadBefore.lateral)<=boundary+.05;
+      const drivingForwards=Math.cos(wrapAngle(this.heading-road.heading))>.15;
+      // Time the exact physical source-spline gate crossing, interpolating
+      // within the fixed step instead of quantizing every split to 16.7ms.
+      if(previousTrackT<gate && road.t>=gate && onRoad && drivingForwards){
+        const ratio=Math.max(0,Math.min(1,(gate-previousTrackT)/travel));
+        const crossedTime=this.lapTime-dt*(1-ratio);
+        const split=Math.max(0,crossedTime-this.sectorStartTime);
         this.sectorTimes[this.highestScoredCheckpoint]=split;
         this.lastSectorTime=split;
         this.lastSector=this.highestScoredCheckpoint+1;
-        this.sectorStartTime=this.lapTime;
+        this.sectorStartTime=crossedTime;
         this.highestScoredCheckpoint++;
       }
     }
@@ -440,31 +445,41 @@ export class RaceEngine {
     // Merely accumulating 100% progress cannot finish a lap. The vehicle
     // must cross the physical start/finish seam forward after S1-S3.
     const crossedFinish=validTravel && travel>0 &&
-      previousTrackT>.95 && road.t<.05;
+      previousTrackT>.95 && road.t<.05 &&
+      Math.abs(road.lateral)<=boundary+.05 &&
+      Math.abs(roadBefore.lateral)<=boundary+.05 &&
+      Math.cos(wrapAngle(this.heading-road.heading))>.15;
     if(crossedFinish && this.highestScoredCheckpoint===3){
-      const finalSector=this.lapTime-this.sectorStartTime;
+      // Across the wrapping seam, travel = (1-previousT) + road.t.
+      // Keep the fractional remainder of this simulation step for lap 2/3.
+      const fraction=Math.max(0,Math.min(1,(1-previousTrackT)/travel));
+      const crossedTime=this.lapTime-dt*(1-fraction);
+      const completedLap=Math.max(0,crossedTime);
+      const finalSector=Math.max(0,completedLap-this.sectorStartTime);
       this.sectorTimes[3]=finalSector;
       this.lastSectorTime=finalSector;
       this.lastSector=4;
-      this.lapTimes.push(this.lapTime);
-      if(this.bestLap===null || this.lapTime<this.bestLap){
-        this.bestLap=this.lapTime;
-        saveBestLap(this.lapTime);
+      this.lapTimes.push(completedLap);
+      if(this.bestLap===null || completedLap<this.bestLap){
+        this.bestLap=completedLap;
+        saveBestLap(completedLap);
       }
-      this.lapTime=0;
+      this.lapTime=Math.max(0,this.lapTime-completedLap);
       this.sectorStartTime=0;
-      // Start the next lap at the actual projected seam location, avoiding
-      // floating-point drift from previous projected travel.
       this.progress=road.t;
       this.highestScoredCheckpoint=0;
       this.checkpoints=0;
       this.sectorTimes=[];
       this.lap++;
       if(this.lap>MAX_LAPS){
+        // The official race clock stops at the exact forward finish crossing;
+        // do not retain the post-line fraction of the final fixed step.
+        this.elapsed=Math.max(0,this.elapsed-dt*(1-fraction));
         this.phase='finished';
         this.reason='complete';
         this.isBoosting=false;
-        return; // Finished runs cannot trigger later boost-pad rewards.
+        this.speed=0;
+        return;
       }
     }
 
