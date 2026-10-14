@@ -6,11 +6,11 @@ import {
 import { ROAD_HALF_WIDTH, trackAt } from '../track';
 import { emissiveAmber, emissiveCyan } from './Rendering';
 
-function panelTexture(title:string,subtitle:string):CanvasTexture {
+function panelTexture(title:string,subtitle:string):CanvasTexture|null {
   const canvas=document.createElement('canvas');
   canvas.width=1024;canvas.height=256;
   const c=canvas.getContext('2d');
-  if(!c) throw new Error('Canvas 2D context required');
+  if(!c) return null;
   c.fillStyle='#111f2c';c.fillRect(0,0,1024,256);
   c.fillStyle='#83e9ec';c.fillRect(28,22,9,212);
   c.fillStyle='#e6f1f3';c.font='900 126px Arial,sans-serif';c.fillText(title,68,152);
@@ -34,7 +34,7 @@ function SignalBridge({t,index}: {t:number;index:number}) {
     index%3===0?'ION / 01':index%3===1?'NIGHTSHIFT':'SECTOR '+(index+1),
     index%3===0?'ANTI-GRAVITY CIRCUIT':index%3===1?'DRIVE BEYOND THE LIMIT':'HIGH SPEED ZONE'
   ),[index]);
-  useEffect(()=>()=>texture.dispose(),[texture]);
+  useEffect(()=>()=>texture?.dispose(),[texture]);
   return (
     <group position={[position.x,position.y,position.z]} rotation={[0,yaw,0]}>
       {[-15.8,15.8].map(side=>(
@@ -65,7 +65,8 @@ function SignalBridge({t,index}: {t:number;index:number}) {
       </mesh>
       <mesh position={[0,12.85,-.82]}>
         <planeGeometry args={[18.5,4.5]}/>
-        <meshBasicMaterial map={texture} side={DoubleSide} toneMapped={false}/>
+        <meshBasicMaterial map={texture??undefined} color={texture?'#ffffff':'#294656'}
+          side={DoubleSide} toneMapped={false}/>
       </mesh>
       <mesh position={[0,10.34,-.84]}>
         <boxGeometry args={[20.2,.14,.2]}/>
@@ -117,10 +118,12 @@ function BarrierSystem(){
     }
     postsRef.current.instanceMatrix.needsUpdate=true;
     bandsRef.current.instanceMatrix.needsUpdate=true;
+    postsRef.current.computeBoundingSphere();
+    bandsRef.current.computeBoundingSphere();
   },[posts]);
   return (
     <group>
-      <instancedMesh ref={postsRef} args={[undefined,undefined,posts.length]} frustumCulled={false}>
+      <instancedMesh ref={postsRef} args={[undefined,undefined,posts.length]}>
         <boxGeometry args={[1,1,1]}/>
         <meshStandardMaterial color="#344858" metalness={.73} roughness={.39}/>
       </instancedMesh>
@@ -132,7 +135,7 @@ function BarrierSystem(){
   );
 }
 
-function DirectionSignals(){
+function DirectionSignals({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
   const cornerMarkers=useMemo(()=>{
     const markers:{t:number;side:number}[]=[];
     for(let i=2;i<58;i++){
@@ -147,7 +150,7 @@ function DirectionSignals(){
   },[]);
   return (
     <group>
-      {cornerMarkers.map(({t,side},idx)=>{
+      {(quality==='QUALITY'?cornerMarkers:cornerMarkers.filter((_,i)=>i%2===0)).map(({t,side},idx)=>{
         const {position,right,tangent}=trackAt(t);
         const yaw=Math.atan2(tangent.x,tangent.z);
         return (
@@ -173,7 +176,7 @@ function DirectionSignals(){
     </group>
   );
 }
-function CoolingTowers(){
+function CoolingTowers({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
   const positions=useMemo(()=>[.075,.28,.54,.83].map(t=>{
     const {position,right,tangent}=trackAt(t);
     const side=t>.5?-1:1;
@@ -184,7 +187,7 @@ function CoolingTowers(){
   }),[]);
   return (
     <group>
-      {positions.map((x,i)=>(
+      {(quality==='QUALITY'?positions:positions.filter((_,i)=>i%2===0)).map((x,i)=>(
         <group key={i} position={x.xyz} rotation={[0,x.yaw,0]}>
           <mesh position={[0,21,0]} castShadow>
             <cylinderGeometry args={[8,12,42,8]}/>
@@ -210,13 +213,14 @@ function CoolingTowers(){
   );
 }
 
-export function CircuitDressing(){
+export function CircuitDressing({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
   return (
     <group>
       <BarrierSystem/>
-      <DirectionSignals/>
-      <CoolingTowers/>
-      {[.12,.42,.68,.9].map((t,i)=><SignalBridge key={t} t={t} index={i}/>)}
+      <DirectionSignals quality={quality}/>
+      <CoolingTowers quality={quality}/>
+      {(quality==='QUALITY'?[.12,.42,.68,.9]:[.12,.68])
+        .map((t,i)=><SignalBridge key={t} t={t} index={i}/>)}
     </group>
   );
 }

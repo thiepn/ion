@@ -161,17 +161,17 @@ export function KenneyDistricts({quality}: {quality:'QUALITY'|'PERFORMANCE'}) {
   return (
     <group>
       {placements.map((item,index)=>(
-        <AssetBoundary key={index} assetLabel={item.asset} fallback={null}>
+        <AssetBoundary key={index} assetLabel={item.asset} asset={item.asset} fallback={null}>
           <Suspense fallback={null}>
             <SceneryObject item={item}/>
           </Suspense>
         </AssetBoundary>
       ))}
       {quality==='QUALITY' && <>
-        <AssetBoundary assetLabel="aerial traffic A" fallback={null}>
+        <AssetBoundary assetLabel="aerial traffic A" asset="craft-speedera" fallback={null}>
           <Suspense fallback={null}><FlyingTraffic offset={.28} asset="craft-speedera"/></Suspense>
         </AssetBoundary>
-        <AssetBoundary assetLabel="aerial traffic B" fallback={null}>
+        <AssetBoundary assetLabel="aerial traffic B" asset="craft-racer" fallback={null}>
           <Suspense fallback={null}><FlyingTraffic offset={.77} asset="craft-racer"/></Suspense>
         </AssetBoundary>
       </>}
