@@ -90,7 +90,12 @@ export function App() {
   newest.current=data;
 
   const refresh=useCallback(()=>setData(game.snapshot()),[game]);
-  const togglePause=useCallback(()=>{game.pause();refresh()},[game,refresh]);
+  const togglePause=useCallback(()=>{
+    // Never carry a stale keyboard/pointer boost or throttle through pause.
+    input.clear();
+    game.pause();
+    refresh();
+  },[game,input,refresh]);
   const start=useCallback(()=>{
     input.clear();
     game.start();
@@ -211,6 +216,10 @@ export function App() {
             chooseQuality('PERFORMANCE');
             retryRenderer();
           }}>RESTART IN PERFORMANCE MODE</button>
+          <button className="secondary-action" type="button"
+            onClick={()=>window.location.reload()}>
+            RELOAD APP IF RENDERER RETRY FAILS
+          </button>
         </section>
       )}
       {data.impact>0.02 && isRace && <div className="impact-flash" style={{opacity:data.impact*0.35}} aria-hidden="true"/>}
@@ -222,7 +231,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V10 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V11 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
@@ -233,6 +242,14 @@ export function App() {
 
       {isRace && (
         <div className="hud" aria-live="off">
+          {data.trackWarning && data.phase==='racing' && (
+            <div className="track-alert" role="status" aria-live="polite">
+              <strong>{data.trackWarning==='wrong-way'?'WRONG WAY':'CHECKPOINT MISSED'}</strong>
+              <span>{data.trackWarning==='wrong-way'?
+                'Turn around and follow the circuit direction':
+                'Return to the next required sector marker or use recovery'}</span>
+            </div>
+          )}
           <div className="race-top">
             <div className="race-value">
               <span className="eyebrow">CURRENT LAP</span>

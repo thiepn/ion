@@ -18,6 +18,7 @@ import { IndustrialHorizon } from './visuals/IndustrialHorizon';
 import { IndustrialSky } from './visuals/IndustrialSky';
 import { ChaseRig } from './visuals/ChaseRig';
 import { KenneyDistricts, KenneyRacer } from './visuals/KenneyAssets';
+import { AssetBoundary } from './visuals/AssetBoundary';
 import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
 
 type CameraMode = 'CHASE' | 'NEAR';
@@ -257,6 +258,7 @@ function CircuitDetails() {
       windowRef.current.setMatrixAt(i, dummy.matrix);
     }
     windowRef.current.instanceMatrix.needsUpdate = true;
+    windowRef.current.computeBoundingSphere();
   }, [windows]);
 
   const lamps = useMemo(() => Array.from({ length: 170 }, (_, i) => {
@@ -277,6 +279,7 @@ function CircuitDetails() {
       lampRef.current!.setMatrixAt(index, dummy.matrix);
     });
     lampRef.current.instanceMatrix.needsUpdate = true;
+    lampRef.current.computeBoundingSphere();
   }, [lamps]);
 
   const farMonoliths = useMemo(() => {
@@ -330,11 +333,11 @@ function CircuitDetails() {
         <boxGeometry args={[1,1,1]}/>
         <meshStandardMaterial color="#ffffff" metalness={.48} roughness={.53}/>
       </instancedMesh>
-      <instancedMesh ref={windowRef} args={[undefined,undefined,windows.length]} frustumCulled={false}>
+      <instancedMesh ref={windowRef} args={[undefined,undefined,windows.length]}>
         <boxGeometry args={[1,1,1]}/>
         <meshBasicMaterial color="#87c3d1" toneMapped={false}/>
       </instancedMesh>
-      <instancedMesh ref={lampRef} args={[undefined,undefined,lamps.length]} frustumCulled={false}>
+      <instancedMesh ref={lampRef} args={[undefined,undefined,lamps.length]}>
         <boxGeometry args={[1,1,1]} />
         <meshBasicMaterial color={CYAN} toneMapped={false} />
       </instancedMesh>
@@ -452,9 +455,12 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <BoostFX game={game} quality={quality}/>
       <RailImpactFX game={game} quality={quality}/>
       {craftKind==='RACER' ? (
-        <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/> }>
-          <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>
-        </Suspense>
+        <AssetBoundary key="rift" assetLabel="Kenney Rift craft"
+          fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}>
+          <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}>
+            <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>
+          </Suspense>
+        </AssetBoundary>
       ) : <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}
 
       {quality==='QUALITY' && <CinematicEffects/>}

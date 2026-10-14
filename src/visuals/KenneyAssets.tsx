@@ -3,6 +3,7 @@ import { useFrame, useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Box3, Color, Group, Mesh, PointLight, Vector3 } from 'three';
 import { trackAt } from '../track';
+import { AssetBoundary } from './AssetBoundary';
 
 export type KenneyName =
   'craft-racer'|'craft-speedera'|'craft-speederb'|
@@ -160,13 +161,19 @@ export function KenneyDistricts({quality}: {quality:'QUALITY'|'PERFORMANCE'}) {
   return (
     <group>
       {placements.map((item,index)=>(
-        <Suspense fallback={null} key={index}>
-          <SceneryObject item={item}/>
-        </Suspense>
+        <AssetBoundary key={index} assetLabel={item.asset} fallback={null}>
+          <Suspense fallback={null}>
+            <SceneryObject item={item}/>
+          </Suspense>
+        </AssetBoundary>
       ))}
       {quality==='QUALITY' && <>
-        <Suspense fallback={null}><FlyingTraffic offset={.28} asset="craft-speedera"/></Suspense>
-        <Suspense fallback={null}><FlyingTraffic offset={.77} asset="craft-racer"/></Suspense>
+        <AssetBoundary assetLabel="aerial traffic A" fallback={null}>
+          <Suspense fallback={null}><FlyingTraffic offset={.28} asset="craft-speedera"/></Suspense>
+        </AssetBoundary>
+        <AssetBoundary assetLabel="aerial traffic B" fallback={null}>
+          <Suspense fallback={null}><FlyingTraffic offset={.77} asset="craft-racer"/></Suspense>
+        </AssetBoundary>
       </>}
     </group>
   );

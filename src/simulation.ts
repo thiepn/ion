@@ -28,6 +28,7 @@ export type RaceSnapshot = {
   lastSector: number | null;
   recoveryReady: boolean;
   recoveryCount: number;
+  trackWarning: 'wrong-way'|'missed-checkpoint'|null;
 };
 
 const MAX_LAPS = 3;
@@ -56,6 +57,7 @@ export class InputController {
   private gamepadActionButtons=[false,false,false,false];
   private gamepadIndex:number|null=null;
   private gamepadUsedForDriving=false;
+  private requireNeutralGamepad=true;
   onGamepadDisconnect?: () => void;
   onGamepadConnect?: () => void;
   onKeyAction?: (action: 'pause' | 'reset' | 'camera' | 'recover') => void;
@@ -73,11 +75,13 @@ export class InputController {
       this.gamepadActionButtons.fill(false);
       const wasDriving=this.gamepadUsedForDriving;
       this.gamepadUsedForDriving=false;
+      this.requireNeutralGamepad=true;
       if(wasDriving)this.onGamepadDisconnect?.();
     }
     const next=pads.find((p):p is Gamepad=>Boolean(p?.connected))??null;
     if(next){
       this.gamepadIndex=next.index;
+      this.requireNeutralGamepad=true;
       // Arm the new controller from its *current* physical state.
       // Holding Start while reconnecting must not toggle pause/restart.
       const indices=[9,3,2,4];
@@ -97,7 +101,11 @@ export class InputController {
     const code = e.code;
     const element=e.target;
     if(element instanceof HTMLElement &&
-      (element.isContentEditable || ['INPUT','TEXTAREA','SELECT','BUTTON'].includes(element.tagName))) return;
+      (element.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(element.tagName)))
+      return;
+    // Escape remains available while a focused pause/menu button has focus.
+    if(element instanceof HTMLElement && element.tagName==='BUTTON' && code!=='Escape')
+      return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     if(e.ctrlKey || e.altKey || e.metaKey)return;
     if (!e.repeat) {
@@ -126,11 +134,15 @@ export class InputController {
     this.clear();
     this.gamepadIndex=null;
     this.gamepadUsedForDriving=false;
+    this.requireNeutralGamepad=true;
     this.gamepadActionButtons.fill(false);
   }
   clear() {
     this.held.clear();
     this.touchHeld.clear();
+    // Reacquire the neutral controller position after interrupted focus,
+    // instead of reviving a previously held throttle or boost trigger.
+    this.requireNeutralGamepad=true;
   }
   /** Poll actions even while paused, with reconnect-safe edge detection. */
   pollGamepadActions() {
@@ -168,6 +180,15 @@ export class InputController {
     const pad=this.readGamepad();
     if(pad){
       const rawAxis=InputController.axis(pad.axes[0]);
+      if(this.requireNeutralGamepad){
+        const neutral=Math.abs(rawAxis)<.14 &&
+          InputController.pressure(pad.buttons[7]?.value)<.08 &&
+          InputController.pressure(pad.buttons[6]?.value)<.08 &&
+          !pad.buttons[0]?.pressed && !pad.buttons[1]?.pressed &&
+          !pad.buttons[5]?.pressed;
+        if(neutral)this.requireNeutralGamepad=false;
+        else return {throttle,brake,steer,boost};
+      }
       const axis=Math.abs(rawAxis)>.15?
         Math.sign(rawAxis)*(Math.abs(rawAxis)-.15)/.85:0;
       steer=Math.abs(axis)>Math.abs(steer)?axis:steer;
@@ -211,6 +232,9 @@ export class RaceEngine {
   impact = 0;
   private wallCooldown = 0;
   private wallContactSide = 0;
+  private wallReleaseTime = 0;
+  private wrongWaySeconds=0;
+  private missedCheckpoint=false;
   private usedBoostPad = -1;
   private steering=0;
   /** Smoothed driver's last steering command, shared only within this engine. */
@@ -251,6 +275,9 @@ export class RaceEngine {
     this.count = 3.5;
     this.wallCooldown = 0;
     this.wallContactSide = 0;
+    this.wallReleaseTime=0;
+    this.wrongWaySeconds=0;
+    this.missedCheckpoint=false;
     this.usedBoostPad = -1;
     this.lastBoostPadDistance = -1;
     this.impact = 0;
@@ -298,6 +325,9 @@ export class RaceEngine {
     this.shield=Math.max(1,this.shield-8);
     this.wallCooldown=1;
     this.wallContactSide=0;
+    this.wallReleaseTime=0;
+    this.wrongWaySeconds=0;
+    this.missedCheckpoint=false;
     this.recoveryCooldown=8;
     this.usedBoostPad=-1;
     this.lastBoostPadDistance=(this.lap-1)+t;
@@ -375,6 +405,7 @@ export class RaceEngine {
 
     const boundary = ROAD_HALF_WIDTH - 1.5;
     if (Math.abs(road.lateral) > boundary) {
+      this.wallReleaseTime=0;
       const side = Math.sign(road.lateral);
       const newImpact=this.wallContactSide!==side;
       this.wallContactSide=side;
@@ -403,7 +434,10 @@ export class RaceEngine {
         return;
       }
     }else{
-      this.wallContactSide=0;
+      // A tiny detachment caused by projection jitter is still the same
+      // guardrail scrape. Require a true separation before another impact.
+      this.wallReleaseTime+=dt;
+      if(this.wallReleaseTime>.18)this.wallContactSide=0;
     }
 
     // The road and its collision projector remain the only race source.
@@ -416,6 +450,9 @@ export class RaceEngine {
     this.previousT=road.t;
     const maximumProgressStep=Math.max(.006,3*this.speed*dt/TRACK_LENGTH);
     const validTravel=Math.abs(travel)<=maximumProgressStep;
+    const facing=Math.cos(wrapAngle(this.heading-road.heading));
+    this.wrongWaySeconds=facing<-.2 && this.speed>10?
+      Math.min(3,this.wrongWaySeconds+dt):Math.max(0,this.wrongWaySeconds-dt*1.8);
     if(validTravel){
       this.progress=Math.max(0,this.progress+travel);
     }
@@ -438,6 +475,14 @@ export class RaceEngine {
         this.lastSector=this.highestScoredCheckpoint+1;
         this.sectorStartTime=crossedTime;
         this.highestScoredCheckpoint++;
+        this.missedCheckpoint=false;
+      }
+      // A future sector marker can only be crossed after its predecessors.
+      // Surface the missed gate, never invent credit for it.
+      for(let future=this.highestScoredCheckpoint+1;future<=3;future++){
+        const futureT=future*.25;
+        if(previousTrackT<futureT && road.t>=futureT)
+          this.missedCheckpoint=true;
       }
     }
     this.checkpoints=this.highestScoredCheckpoint;
@@ -469,6 +514,8 @@ export class RaceEngine {
       this.progress=road.t;
       this.highestScoredCheckpoint=0;
       this.checkpoints=0;
+      this.missedCheckpoint=false;
+      this.wrongWaySeconds=0;
       this.sectorTimes=[];
       this.lap++;
       if(this.lap>MAX_LAPS){
@@ -528,6 +575,8 @@ export class RaceEngine {
       lastSector:this.lastSector,
       recoveryReady:this.recoveryReady,
       recoveryCount:this.recoveryCount,
+      trackWarning:this.wrongWaySeconds>.85?'wrong-way':
+        this.missedCheckpoint?'missed-checkpoint':null,
     };
   }
 }
