@@ -19,6 +19,9 @@ export class RaceAudio {
 
   get enabled() { return this.on; }
 
+  /** StrictMode runs development effect cleanup once before real mounting. */
+  reopen() { if (this.closed) { this.closed = false; this.previous = null; } }
+
   async enable(): Promise<boolean> {
     if (this.closed) return false;
     try {
@@ -110,7 +113,15 @@ export class RaceAudio {
     const prior = this.previous;
     this.previous = snapshot;
     this.applyMotor(snapshot);
-    if (!this.on || snapshot.phase !== 'racing' || !prior) return;
+    if (!this.on || !prior) return;
+    // Race end is a state transition, not a racing frame. Sound it before
+    // the new non-racing state silences the continuous motor.
+    if (snapshot.phase === 'finished' && prior.phase === 'racing') {
+      if (snapshot.reason === 'complete') this.cue(440, 990, 0.44, 0.055);
+      else this.cue(230, 72, 0.43, 0.055, 'triangle');
+      return;
+    }
+    if (snapshot.phase !== 'racing') return;
 
     if (prior.phase === 'countdown') {
       this.cue(380, 660, 0.25, 0.048);
