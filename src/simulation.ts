@@ -47,6 +47,7 @@ function wrapAngle(angle: number) {
 export class InputController {
   private held = new Set<string>();
   private attached = false;
+  private gamepadActionButtons=[false,false,false];
   onKeyAction?: (action: 'pause' | 'reset' | 'camera') => void;
 
   private onKeyDown = (e: KeyboardEvent) => {
@@ -78,6 +79,22 @@ export class InputController {
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
     this.held.clear();
+    this.gamepadActionButtons.fill(false);
+  }
+  /** Called even while paused so gamepad Start can resume a race. */
+  pollGamepadActions() {
+    let pad: Gamepad | null = null;
+    try {
+      pad=typeof navigator.getGamepads==='function'?
+        Array.from(navigator.getGamepads()).find((p):p is Gamepad=>Boolean(p)) ?? null:null;
+    }catch { pad=null; }
+    const indices=[9,3,2]; // Start/Pause, Y/Camera, X/Reset
+    const actions=['pause','camera','reset'] as const;
+    indices.forEach((index,i)=>{
+      const pressed=Boolean(pad?.buttons[index]?.pressed);
+      if(pressed&&!this.gamepadActionButtons[i])this.onKeyAction?.(actions[i]);
+      this.gamepadActionButtons[i]=pressed;
+    });
   }
   press(code: string) { this.held.add(code); }
   release(code: string) { this.held.delete(code); }
@@ -131,6 +148,9 @@ export class RaceEngine {
   impact = 0;
   private wallCooldown = 0;
   private usedBoostPad = -1;
+  private steering=0;
+  /** Smoothed driver's last steering command, shared only within this engine. */
+  get steeringAmount(){return this.steering;}
   private lastBoostPadDistance = -1;
 
   reset() {
@@ -156,6 +176,7 @@ export class RaceEngine {
     this.usedBoostPad = -1;
     this.lastBoostPadDistance = -1;
     this.impact = 0;
+    this.steering=0;
   }
   start() { this.reset(); this.phase = 'countdown'; }
   restart() { this.start(); }
@@ -184,26 +205,39 @@ export class RaceEngine {
     if (this.isBoosting) this.boost = Math.max(0, this.boost - dt * 27);
     else this.boost = Math.min(100, this.boost + dt * 7.5);
 
-    const acceleration = this.isBoosting ? 46 : 32;
-    this.speed += controls.throttle * acceleration * dt;
-    this.speed -= controls.brake * 52 * dt;
-    this.speed -= (2.0 + this.speed * 0.05) * dt;
-    this.speed = Math.min(this.isBoosting ? 115 : 86, Math.max(0, this.speed));
+    // Arcade acceleration, aerodynamic drag and stronger braking.
+    // The 60 Hz fixed-step World loop is the only authoritative integrator.
+    const acceleration=this.isBoosting?46:32;
+    const braking=Math.max(0,controls.brake)*58;
+    const drag=1.35 + .00093*this.speed*this.speed;
+    this.speed=Math.max(0,Math.min(this.isBoosting?115:86,
+      this.speed+(controls.throttle*acceleration-braking-drag)*dt));
 
-    const steeringRate = 1.8 * (0.3 + Math.min(this.speed / 85, 1) * 0.65);
-    this.heading = wrapAngle(this.heading + controls.steer * steeringRate * dt);
-    // Mild built-in heading assist helps keyboard racers without steering for them.
-    const roadBefore = nearestTrack(this.position.x, this.position.z);
-    this.heading = wrapAngle(this.heading +
-      wrapAngle(roadBefore.heading - this.heading) * dt * 0.26 * Math.min(this.speed / 45, 1));
+    // Time-consistent input filtering removes digital steering snap and
+    // works with continuous gamepad axes without introducing a second physics
+    // authority. Braking helps rotate tightly at the apex.
+    const desiredSteering=Math.max(-1,Math.min(1,controls.steer));
+    const filter=1-Math.exp(-dt*(desiredSteering===0?8.3:11.0));
+    this.steering+=(desiredSteering-this.steering)*filter;
+    const speedFactor=Math.min(this.speed/77,1);
+    const steeringRate=(.50+speedFactor*1.27)*(controls.brake>.05?1.18:1);
+    this.heading=wrapAngle(this.heading+this.steering*steeringRate*dt);
+    const roadBefore=nearestTrack(this.position.x,this.position.z,this.previousT);
+    // Gentle tangent alignment only when steering is almost neutral; the
+    // player always retains deliberate cornering control.
+    const assist=.16+(1-Math.abs(this.steering))*.26;
+    this.heading=wrapAngle(this.heading+
+      wrapAngle(roadBefore.heading-this.heading)*dt*assist*Math.min(this.speed/38,1));
 
-    this.position.x += Math.sin(this.heading) * this.speed * dt;
-    this.position.z += Math.cos(this.heading) * this.speed * dt;
+    this.position.x += Math.sin(this.heading)*this.speed*dt;
+    this.position.z += Math.cos(this.heading)*this.speed*dt;
 
-    const road = nearestTrack(this.position.x, this.position.z);
+    const road=nearestTrack(this.position.x,this.position.z,roadBefore.t);
     this.position.y += (road.y + 2.5 - this.position.y) * Math.min(1, dt * 7);
-    this.roll += ((-controls.steer * Math.min(this.speed / 85, 1) * 0.22) - this.roll) * Math.min(1, dt * 8);
-    this.pitch += ((-this.speed / 600) - this.pitch) * Math.min(1, dt * 5);
+    const bank=-this.steering*speedFactor*(controls.brake>.05?.17:.27);
+    this.roll+=(bank-this.roll)*(1-Math.exp(-dt*7.4));
+    const desiredPitch=-Math.min(.17,this.speed/620)+(controls.brake>.05?.075:0);
+    this.pitch+=(desiredPitch-this.pitch)*(1-Math.exp(-dt*5.2));
 
     const boundary = ROAD_HALF_WIDTH - 1.5;
     if (Math.abs(road.lateral) > boundary) {

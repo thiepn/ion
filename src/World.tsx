@@ -10,6 +10,7 @@ import { Craft } from './visuals/Craft';
 import { CircuitDressing } from './visuals/CircuitDressing';
 import { TrackInfrastructure } from './visuals/TrackInfrastructure';
 import { SpeedWake } from './visuals/SpeedWake';
+import { BoostFX } from './visuals/BoostFX';
 import { RaceLineGuidance } from './visuals/RaceLineGuidance';
 import { IndustrialHorizon } from './visuals/IndustrialHorizon';
 import { IndustrialSky } from './visuals/IndustrialSky';
@@ -374,6 +375,8 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
   const fixedAccumulator = useRef(0);
 
   useFrame(({ clock }, dt) => {
+    // Gamepad pause, camera and restart are polled even while race time is frozen.
+    input.pollGamepadActions();
     // Deterministic 60 Hz simulation independent of monitor refresh.
     // Cap catch-up after tab stalls rather than simulating seconds in one frame.
     if (game.phase === 'racing' || game.phase === 'countdown') {
@@ -427,6 +430,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <KenneyDistricts quality={quality}/>
       <AtmosphericParticles/>
       <SpeedWake game={game} quality={quality}/>
+      <BoostFX game={game} quality={quality}/>
       {craftKind==='RACER' ? (
         <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/> }>
           <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>

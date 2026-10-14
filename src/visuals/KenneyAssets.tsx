@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Box3, Color, Group, Mesh, Vector3 } from 'three';
+import { Box3, Color, Group, Mesh, PointLight, Vector3 } from 'three';
 import { trackAt } from '../track';
 
 export type KenneyName =
@@ -158,15 +158,17 @@ export function KenneyDistricts({quality}: {quality:'QUALITY'|'PERFORMANCE'}) {
   // The reduced preset retains the 9 hero landmarks, not 21 repeating props.
   const placements=quality==='QUALITY'?DISTRICT:DISTRICT.filter((_,i)=>i%3===0);
   return (
-    <Suspense fallback={null}>
-      <group>
-        {placements.map((item,index)=><SceneryObject item={item} key={index}/>)}
-        {quality==='QUALITY' && <>
-          <FlyingTraffic offset={.28} asset="craft-speedera"/>
-          <FlyingTraffic offset={.77} asset="craft-racer"/>
-        </>}
-      </group>
-    </Suspense>
+    <group>
+      {placements.map((item,index)=>(
+        <Suspense fallback={null} key={index}>
+          <SceneryObject item={item}/>
+        </Suspense>
+      ))}
+      {quality==='QUALITY' && <>
+        <Suspense fallback={null}><FlyingTraffic offset={.28} asset="craft-speedera"/></Suspense>
+        <Suspense fallback={null}><FlyingTraffic offset={.77} asset="craft-racer"/></Suspense>
+      </>}
+    </group>
   );
 }
 
@@ -181,8 +183,10 @@ export function KenneyRacer({game,shipRef,hullRef,paint}:{
 }){
   const flameLeft=useRef<Mesh>(null);
   const flameRight=useRef<Mesh>(null);
+  const boostLight=useRef<PointLight>(null);
   useFrame(({clock})=>{
     const scale=game.isBoosting?1.65:.5;
+    if(boostLight.current)boostLight.current.intensity=game.isBoosting?10:game.speed>5?3:1;
     for(const m of [flameLeft.current,flameRight.current]){
       if(!m)continue;
       m.visible=game.speed>5;
@@ -203,13 +207,13 @@ export function KenneyRacer({game,shipRef,hullRef,paint}:{
               <torusGeometry args={[.31,.08,8,20]}/>
               <meshBasicMaterial color="#80effb" toneMapped={false}/>
             </mesh>
-            <mesh ref={i===0?flameLeft:flameRight} position={[0,0,-1.2]} rotation={[Math.PI/2,0,0]}>
+            <mesh ref={i===0?flameLeft:flameRight} position={[0,0,-1.2]} rotation={[-Math.PI/2,0,0]}>
               <coneGeometry args={[.28,1.45,14]}/>
               <meshBasicMaterial color="#7deaff" toneMapped={false} transparent opacity={.62} depthWrite={false}/>
             </mesh>
           </group>
         ))}
-        <pointLight position={[0,.5,-2.3]} intensity={5} distance={17} color="#65edff"/>
+        <pointLight ref={boostLight} position={[0,.5,-2.3]} intensity={2} distance={17} color="#65edff"/>
       </group>
     </group>
   );

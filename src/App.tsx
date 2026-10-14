@@ -1,7 +1,5 @@
-import { Canvas } from '@react-three/fiber';
-import { ACESFilmicToneMapping } from 'three';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { World } from './World';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+const RaceStage=lazy(()=>import('./RaceStage'));
 import { RuntimeBoundary } from './visuals/RuntimeBoundary';
 import { Minimap } from './Minimap';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
@@ -129,19 +127,16 @@ export function App() {
       <div className="viewport" aria-label="3D anti-gravity racing scene">
         <RuntimeBoundary key={rendererEpoch} onFailure={onRendererFailure}>
           {rendererError===null && (
-            <Canvas key={quality} shadows={quality==='QUALITY'} dpr={quality==='QUALITY'?[1,1.65]:[1,1.12]}
-              camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
-              gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
-              onCreated={({gl})=>{
-                gl.toneMapping=ACESFilmicToneMapping;
-                gl.toneMappingExposure=quality==='QUALITY'?1.06:1.12;
-                gl.domElement.addEventListener('webglcontextlost', event=>{
-                  event.preventDefault();
-                  onRendererFailure('Graphics context interrupted');
-                },{once:true});
-              }}>
-              <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} craftKind={craftKind} onSnapshot={onTelemetry}/>
-            </Canvas>
+            <Suspense fallback={
+              <div className="stage-loading" role="status" aria-live="polite">
+                <span>ION / RENDERER</span><strong>INITIALIZING CIRCUIT</strong>
+                <p>Loading the 3D scene and locally licensed spacecraft.</p>
+              </div>
+            }>
+              <RaceStage game={game} input={input} cameraMode={cameraMode}
+                paint={paint} showcase={garage} quality={quality} craftKind={craftKind}
+                onSnapshot={onTelemetry} onRendererFailure={onRendererFailure}/>
+            </Suspense>
           )}
         </RuntimeBoundary>
       </div>
@@ -170,7 +165,11 @@ export function App() {
         </div>
         <div className="masthead-right">
           <span className="build-label">V5 · DEVELOPMENT BUILD</span>
-          {isRace && <button className="small-button" type="button" onClick={togglePause}>PAUSE <kbd>ESC</kbd></button>}
+          {isRace && <>
+            <button className="small-button camera-button" type="button"
+              onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
+            <button className="small-button" type="button" onClick={togglePause}>PAUSE <kbd>ESC</kbd></button>
+          </>}
         </div>
       </header>
 

@@ -249,3 +249,25 @@ h1,h2,p{margin-top:0}
 .renderer-recovery .renderer-detail{font:12px/1.5 'DM Mono',monospace;color:#efa677;max-height:80px;overflow:auto;word-break:break-word}
 .renderer-recovery button{margin-top:10px}
 @media(max-height:580px){.renderer-recovery{top:49%;padding:20px}.renderer-recovery h2{margin:13px 0 7px}}
+
+/* V6: user-facing renderer initialization instead of a blank black canvas. */
+.stage-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ flex-direction:column;text-align:center;gap:9px;color:#a4bbc6;background:#0b1626;pointer-events:none}
+.stage-loading span{font:700 11px 'DM Mono',monospace;letter-spacing:.19em;color:#8fe5e8}
+.stage-loading strong{font:800 clamp(30px,5vw,65px) 'Barlow Condensed',Impact,sans-serif;color:#eaf7fa}
+.stage-loading p{max-width:250px;font:13px/1.5 'DM Sans',Arial,sans-serif}
+@media(max-width:580px){
+ .masthead-right{gap:6px}
+ .camera-button,.small-button{padding:10px 8px;font-size:9px;letter-spacing:.07em}
+ .small-button kbd{display:none}
+}
+@media(orientation:landscape) and (max-height:490px){
+ .masthead{padding:8px 14px}
+ .identity-mark{font-size:27px}
+ .identity-detail{font-size:7px}
+ .race-top{top:52px}
+ .race-bottom{bottom:78px}
+ .touch-bar{bottom:9px}
+ .touch-control{height:49px}
+ .site-footer{display:none}
+}
