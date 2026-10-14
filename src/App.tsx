@@ -75,6 +75,10 @@ export function App() {
   const audio = useMemo(()=>new RaceAudio(),[]);
   const [soundEnabled,setSoundEnabled]=useState(false);
   const [soundError,setSoundError]=useState(false);
+  // Track requested state independently of AudioContext.resume() latency.
+  // Rapid ON/OFF/ON taps must not let an old async result win the UI race.
+  const soundRequested=useRef(false);
+  const soundIntentVersion=useRef(0);
   const [data,setData]=useState<RaceSnapshot>(()=>game.snapshot());
   const [cameraMode,setCameraMode]=useState<CameraMode>('CHASE');
   const [quality,setQuality]=useState<Quality>(()=>{
@@ -115,20 +119,30 @@ export function App() {
     setData(snapshot);
   },[game,audio]);
   const toggleSound=useCallback(async ()=>{
-    if(audio.enabled){
+    const enableRequested=!soundRequested.current;
+    soundRequested.current=enableRequested;
+    const request=++soundIntentVersion.current;
+    if(!enableRequested){
       audio.disable();
       setSoundEnabled(false);
       setSoundError(false);
       return;
     }
+    setSoundError(false);
     const enabled=await audio.enable();
+    if(request!==soundIntentVersion.current)return;
     if(enabled)audio.update(game.snapshot());
+    soundRequested.current=enabled;
     setSoundEnabled(enabled);
     setSoundError(!enabled);
   },[audio,game]);
   useEffect(()=>{
     audio.reopen();
-    return ()=>audio.dispose();
+    return ()=>{
+      ++soundIntentVersion.current;
+      soundRequested.current=false;
+      audio.dispose();
+    };
   },[audio]);
   const togglePause=useCallback(()=>{
     // Never carry a stale keyboard/pointer boost or throttle through pause.
@@ -285,7 +299,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V15 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V16 · DEVELOPMENT BUILD</span>
           <button className="small-button" type="button" onClick={toggleSound}
             aria-pressed={soundEnabled} aria-label={soundEnabled?'Mute race audio':'Enable race audio'}>
             AUDIO {soundEnabled?'ON':'OFF'}
@@ -474,7 +488,7 @@ export function App() {
               <div><dt>TRACK RECOVERY</dt><dd>T / GAMEPAD LB</dd></div>
             </dl>
             <p>Gamepad left stick, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls appear on small screens. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
-            <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring.</p>
+            <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
             <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
         </div>
