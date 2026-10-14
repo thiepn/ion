@@ -595,20 +595,27 @@ export class RaceEngine {
       }
     }
 
-    // Three track boost pads. Each is triggered once per crossing.
+    // Three physical orange source-pad strips. Earn a reward only when
+    // moving across the *center* of one strip forward, not merely entering
+    // its generous proximity window or reversing within that window.
     const pads = [0.16, 0.48, 0.80];
     const nearestPad = pads.findIndex(t => Math.abs(road.t - t) < 0.009);
+    const crossedPad = travel>0 && validTravel ?
+      pads.findIndex(t => previousTrackT<t && road.t>=t) : -1;
     const distance = (this.lap - 1) + this.progress;
-    // Pads are three physical centered strips, not a full-width invisible
-    // reward zone; no farming energy by rocking backward across their edges.
-    const onPad = nearestPad >= 0 && Math.abs(road.lateral) < 8.25 &&
-      validTravel && travel > 0 && this.speed > 8;
-    if (onPad && this.usedBoostPad !== nearestPad &&
+    const onPad = crossedPad>=0 &&
+      Math.abs(roadBefore.lateral)<8.25 &&
+      Math.abs(road.lateral)<8.25 &&
+      Math.cos(wrapAngle(this.heading-road.heading))>.15 &&
+      this.speed>8;
+    // Keep the original anti-farming distance gate and one-use occupancy
+    // check. No refund from a small backwards/forwards oscillation.
+    if (onPad && this.usedBoostPad !== crossedPad &&
       distance - this.lastBoostPadDistance > .12) {
       this.boost = Math.min(100, this.boost + 24);
       this.speed = Math.min(112, this.speed + 16);
       this.padSurgeSeconds=.9;
-      this.usedBoostPad = nearestPad;
+      this.usedBoostPad = crossedPad;
       this.lastBoostPadDistance = distance;
     } else if (nearestPad === -1) {
       this.usedBoostPad = -1;
