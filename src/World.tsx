@@ -463,7 +463,11 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
         </AssetBoundary>
       ) : <Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}
 
-      {quality==='QUALITY' && <CinematicEffects/>}
+      {quality==='QUALITY' && (
+        <AssetBoundary assetLabel="optional cinematic bloom" fallback={null}>
+          <CinematicEffects/>
+        </AssetBoundary>
+      )}
     </>
   );
 }
