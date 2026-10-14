@@ -186,7 +186,7 @@ export function KenneyRacer({game,shipRef,hullRef,paint}:{
     for(const m of [flameLeft.current,flameRight.current]){
       if(!m)continue;
       m.visible=game.speed>5;
-      m.scale.z=scale + Math.sin(clock.elapsedTime*23)*.15;
+      m.scale.y=scale + Math.sin(clock.elapsedTime*23)*.15;
     }
   });
   return (
@@ -203,7 +203,7 @@ export function KenneyRacer({game,shipRef,hullRef,paint}:{
               <torusGeometry args={[.31,.08,8,20]}/>
               <meshBasicMaterial color="#80effb" toneMapped={false}/>
             </mesh>
-            <mesh ref={i===0?flameLeft:flameRight} position={[0,0,-1.2]}>
+            <mesh ref={i===0?flameLeft:flameRight} position={[0,0,-1.2]} rotation={[Math.PI/2,0,0]}>
               <coneGeometry args={[.28,1.45,14]}/>
               <meshBasicMaterial color="#7deaff" toneMapped={false} transparent opacity={.62} depthWrite={false}/>
             </mesh>

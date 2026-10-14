@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { ACESFilmicToneMapping } from 'three';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { World } from './World';
+import { RuntimeBoundary } from './visuals/RuntimeBoundary';
 import { Minimap } from './Minimap';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 
@@ -63,6 +64,8 @@ export function App() {
     setQuality(next);
     try{localStorage.setItem('ion-v4-graphics',next);}catch{/* optional preference */}
   },[]);
+  const [rendererError,setRendererError]=useState<string|null>(null);
+  const [rendererEpoch,setRendererEpoch]=useState(0);
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
@@ -108,6 +111,15 @@ export function App() {
   },[game,input,refresh,start,togglePause,toggleCamera]);
 
   const onTelemetry=useCallback((next:RaceSnapshot)=>setData(next),[]);
+  const onRendererFailure=useCallback((message:string)=>{
+    if(game.phase==='racing'||game.phase==='countdown')game.pause();
+    setRendererError(message);
+    refresh();
+  },[game,refresh]);
+  const retryRenderer=useCallback(()=>{
+    setRendererError(null);
+    setRendererEpoch(v=>v+1);
+  },[]);
   const isRace = data.phase==='racing' || data.phase==='countdown';
   const isBlocking = data.phase==='menu'||data.phase==='paused'||data.phase==='finished';
   const won=data.reason==='complete';
@@ -115,14 +127,39 @@ export function App() {
   return (
     <div className="app-shell">
       <div className="viewport" aria-label="3D anti-gravity racing scene">
-        <Canvas key={quality} shadows={quality==='QUALITY'} dpr={quality==='QUALITY'?[1,1.7]:[1,1.15]}
-          camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
-          gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
-          onCreated={({gl})=>{gl.toneMapping=ACESFilmicToneMapping;gl.toneMappingExposure=1.15;}}>
-          <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} craftKind={craftKind} onSnapshot={onTelemetry}/>
-        </Canvas>
+        <RuntimeBoundary key={rendererEpoch} onFailure={onRendererFailure}>
+          {rendererError===null && (
+            <Canvas key={quality} shadows={quality==='QUALITY'} dpr={quality==='QUALITY'?[1,1.65]:[1,1.12]}
+              camera={{fov:66,near:0.12,far:1400,position:[0,22,-178]}}
+              gl={{antialias:quality==='QUALITY',powerPreference:'high-performance',alpha:false}}
+              onCreated={({gl})=>{
+                gl.toneMapping=ACESFilmicToneMapping;
+                gl.toneMappingExposure=quality==='QUALITY'?1.06:1.12;
+                gl.domElement.addEventListener('webglcontextlost', event=>{
+                  event.preventDefault();
+                  onRendererFailure('Graphics context interrupted');
+                },{once:true});
+              }}>
+              <World game={game} input={input} cameraMode={cameraMode} paint={paint} showcase={garage} quality={quality} craftKind={craftKind} onSnapshot={onTelemetry}/>
+            </Canvas>
+          )}
+        </RuntimeBoundary>
       </div>
       <div className="vignette" aria-hidden="true"/>
+      {rendererError!==null && (
+        <section className="renderer-recovery" role="alert">
+          <div className="label-line">ION GRAPHICS / RECOVERY REQUIRED</div>
+          <h2>RENDER INTERRUPTED</h2>
+          <p>The 3D scene could not continue. Race time is paused when possible.
+          Retry the renderer or switch to the reduced graphics preset.</p>
+          <p className="renderer-detail">{rendererError}</p>
+          <button className="cta" type="button" onClick={retryRenderer}>RETRY RENDERER <span>↗</span></button>
+          <button className="secondary-action" type="button" onClick={()=>{
+            chooseQuality('PERFORMANCE');
+            retryRenderer();
+          }}>RESTART IN PERFORMANCE MODE</button>
+        </section>
+      )}
       {data.impact>0.02 && isRace && <div className="impact-flash" style={{opacity:data.impact*0.35}} aria-hidden="true"/>}
 
       <header className="masthead">
@@ -132,7 +169,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V2 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V5 · DEVELOPMENT BUILD</span>
           {isRace && <button className="small-button" type="button" onClick={togglePause}>PAUSE <kbd>ESC</kbd></button>}
         </div>
       </header>
