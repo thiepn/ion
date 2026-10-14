@@ -112,14 +112,19 @@ export function App() {
     input.attach();
     input.onGamepadDisconnect=()=>{
       disconnectedController.current=true;
-      if(game.phase==='racing'||game.phase==='countdown')game.pause();
-      setGamepadNotice('Controller disconnected. Race paused; reconnect or use the keyboard.');
+      const active=game.phase==='racing'||game.phase==='countdown';
+      if(active)game.pause();
+      setGamepadNotice(active?
+        'Controller disconnected. Race paused; reconnect or use the keyboard.':
+        'Controller disconnected. Keyboard and touch controls remain available.');
       refresh();
     };
     input.onGamepadConnect=()=>{
-      if(disconnectedController.current) {
+      if(disconnectedController.current){
         disconnectedController.current=false;
-        setGamepadNotice('Controller reconnected. Release all buttons, then resume your race.');
+        setGamepadNotice(game.phase==='paused'?
+          'Controller reconnected. Release all buttons, then resume your race.':
+          'Controller reconnected. Release held buttons before using gamepad actions.');
       }
     };
     input.onKeyAction=(action)=>{
