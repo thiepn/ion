@@ -446,7 +446,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <CircuitSurfaceDetails quality={quality}/>
       <CircuitDetails/>
       <IndustrialHorizon quality={quality}/>
-      <CircuitDressing/>
+      <CircuitDressing quality={quality}/>
       <RaceLineGuidance game={game} quality={quality}/>
       <TrackInfrastructure quality={quality}/>
       <KenneyDistricts quality={quality}/>
@@ -455,7 +455,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <BoostFX game={game} quality={quality}/>
       <RailImpactFX game={game} quality={quality}/>
       {craftKind==='RACER' ? (
-        <AssetBoundary key="rift" assetLabel="Kenney Rift craft"
+        <AssetBoundary key="rift" assetLabel="Kenney Rift craft" asset="craft-racer"
           fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}>
           <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/>}>
             <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>

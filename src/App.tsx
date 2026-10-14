@@ -244,10 +244,13 @@ export function App() {
         <div className="hud" aria-live="off">
           {data.trackWarning && data.phase==='racing' && (
             <div className="track-alert" role="status" aria-live="polite">
-              <strong>{data.trackWarning==='wrong-way'?'WRONG WAY':'CHECKPOINT MISSED'}</strong>
+              <strong>{data.trackWarning==='wrong-way'?'WRONG WAY':
+                data.trackWarning==='projection-recovered'?'COURSE ALIGNMENT':'CHECKPOINT MISSED'}</strong>
               <span>{data.trackWarning==='wrong-way'?
                 'Turn around and follow the circuit direction':
-                'Return to the next required sector marker or use recovery'}</span>
+                data.trackWarning==='projection-recovered'?
+                  'Vehicle re-centered after an ambiguous course projection':
+                  'Return to the next required sector marker or use recovery'}</span>
             </div>
           )}
           <div className="race-top">
