@@ -10,8 +10,8 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 /** Original procedurally painted racing-surface maps. No external textures. */
-function maps() {
-  const size=512;
+function maps(size:number) {
+  const panel=size/4;
   const base=document.createElement('canvas');
   const normal=document.createElement('canvas');
   const rough=document.createElement('canvas');
@@ -21,7 +21,7 @@ function maps() {
   const c=base.getContext('2d');
   const n=normal.getContext('2d');
   const r=rough.getContext('2d');
-  if(!c || !n || !r) throw new Error('Canvas 2D context unavailable');
+  if(!c || !n || !r) return {colorMap:null,normalMap:null,roughnessMap:null};
   let seed=40217;
   const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
 
@@ -29,21 +29,21 @@ function maps() {
   c.fillRect(0,0,size,size);
   // Modular dark basalt panels with subtle repeats along the entire racing line.
   for (let stripe=0;stripe<4;stripe++) {
-    const yy=stripe*128;
+    const yy=stripe*panel;
     c.fillStyle= stripe%2===0?'#7c8991':'#718087';
-    c.fillRect(0,yy+2,size,124);
+    c.fillRect(0,yy+2,size,panel-4);
     c.fillStyle='#465b68';
     c.fillRect(0,yy,size,2);
     c.fillStyle='rgba(209,224,226,.18)';
     c.fillRect(0,yy+6,size,1);
     c.fillStyle='rgba(15,29,36,.28)';
-    c.fillRect(size/2,yy+3,1,122);
+    c.fillRect(size/2,yy+3,1,panel-6);
     for(let j=0;j<9;j++){
       c.fillStyle='rgba(23,49,57,.18)';
-      c.fillRect(rnd()*512,yy+rnd()*122,5+rnd()*34,.8+rnd()*2);
+      c.fillRect(rnd()*size,yy+rnd()*(panel-6),5+rnd()*34,.8+rnd()*2);
     }
   }
-  for(let i=0;i<11500;i++){
+  for(let i=0;i<Math.round(11500*(size/512)**2);i++){
     const x=rnd()*size,y=rnd()*size;
     const alpha=.025+rnd()*.08;
     c.fillStyle=rnd()>.5?'rgba(18,35,39,'+alpha+')':'rgba(230,235,238,'+alpha+')';
@@ -54,7 +54,7 @@ function maps() {
   const roughImage=r.createImageData(size,size);
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
     const idx=(y*size+x)*4;
-    const line=y%128===0||y%128===1;
+    const line=y%panel<2;
     const local=(Math.sin(x*.47)*Math.sin(y*.26)+Math.sin((x+y)*.14))*.5;
     normalImage.data[idx]=Math.round(126+local*13);
     normalImage.data[idx+1]=line?164:Math.round(128+local*9);
@@ -75,13 +75,13 @@ function maps() {
   for(const map of [colorMap,normalMap,roughnessMap]){
     map.wrapS=RepeatWrapping;
     map.wrapT=RepeatWrapping;
-    map.anisotropy=4;
+    map.anisotropy=size===512?4:2;
   }
   return {colorMap,normalMap,roughnessMap};
 }
-export function useRoadMaterials() {
-  const textures=useMemo(()=>maps(),[]);
-  useEffect(()=>()=>Object.values(textures).forEach(t=>t.dispose()),[textures]);
+export function useRoadMaterials(quality:'QUALITY'|'PERFORMANCE') {
+  const textures=useMemo(()=>maps(quality==='QUALITY'?512:256),[quality]);
+  useEffect(()=>()=>Object.values(textures).forEach(t=>t?.dispose()),[textures]);
   return textures;
 }
 

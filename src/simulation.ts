@@ -1,4 +1,4 @@
-import { headingAt, nearestTrack, ROAD_HALF_WIDTH, trackAt } from './track';
+import { headingAt, nearestTrack, ROAD_HALF_WIDTH, TRACK_LENGTH, trackAt } from './track';
 
 export type Phase = 'menu' | 'countdown' | 'racing' | 'paused' | 'finished';
 export type FinishReason = 'complete' | 'destroyed' | null;
@@ -51,6 +51,7 @@ function wrapAngle(angle: number) {
 
 export class InputController {
   private held = new Set<string>();
+  private touchHeld = new Map<string,Set<number>>();
   private attached = false;
   private gamepadActionButtons=[false,false,false,false];
   onKeyAction?: (action: 'pause' | 'reset' | 'camera' | 'recover') => void;
@@ -70,7 +71,7 @@ export class InputController {
     this.held.add(code);
   };
   private onKeyUp = (e: KeyboardEvent) => this.held.delete(e.code);
-  private onBlur = () => this.held.clear();
+  private onBlur = () => this.clear();
   attach() {
     if (this.attached) return;
     this.attached = true;
@@ -84,8 +85,12 @@ export class InputController {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
-    this.held.clear();
+    this.clear();
     this.gamepadActionButtons.fill(false);
+  }
+  clear() {
+    this.held.clear();
+    this.touchHeld.clear();
   }
   /** Called even while paused so gamepad Start can resume a race. */
   pollGamepadActions() {
@@ -102,21 +107,33 @@ export class InputController {
       this.gamepadActionButtons[i]=pressed;
     });
   }
-  press(code: string) { this.held.add(code); }
-  release(code: string) { this.held.delete(code); }
+  press(code:string,pointerId?:number) {
+    if(pointerId===undefined) {this.held.add(code);return;}
+    let ids=this.touchHeld.get(code);
+    if(!ids){ids=new Set();this.touchHeld.set(code,ids);}
+    ids.add(pointerId);
+  }
+  release(code:string,pointerId?:number) {
+    if(pointerId===undefined){this.held.delete(code);return;}
+    const ids=this.touchHeld.get(code);
+    ids?.delete(pointerId);
+    if(ids?.size===0)this.touchHeld.delete(code);
+  }
   get(): Controls {
-    const keys = this.held;
-    let steer = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft'));
-    let throttle = Number(keys.has('KeyW') || keys.has('ArrowUp'));
-    let brake = Number(keys.has('KeyS') || keys.has('ArrowDown'));
-    let boost = keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const has=(code:string)=>this.held.has(code)||Boolean(this.touchHeld.get(code)?.size);
+    let steer = Number(has('KeyD') || has('ArrowRight')) - Number(has('KeyA') || has('ArrowLeft'));
+    let throttle = Number(has('KeyW') || has('ArrowUp'));
+    let brake = Number(has('KeyS') || has('ArrowDown'));
+    let boost = has('Space') || has('ShiftLeft') || has('ShiftRight');
     if (typeof navigator.getGamepads === 'function') {
       // Some sandboxed/browser configurations deny Gamepad API access.
       let pad: Gamepad | null = null;
       try { pad=Array.from(navigator.getGamepads()).find((p):p is Gamepad=>Boolean(p)) ?? null; }
       catch { pad=null; }
       if (pad) {
-        const axis = Math.abs(pad.axes[0] || 0) > 0.15 ? pad.axes[0] : 0;
+        const rawAxis=pad.axes[0]||0;
+        const axis=Math.abs(rawAxis)>.15?
+          Math.sign(rawAxis)*(Math.abs(rawAxis)-.15)/.85:0;
         steer = Math.abs(axis) > Math.abs(steer) ? axis : steer;
         throttle = Math.max(throttle, pad.buttons[7]?.value || 0, Number(Boolean(pad.buttons[0]?.pressed)));
         brake = Math.max(brake, pad.buttons[6]?.value || 0, Number(Boolean(pad.buttons[1]?.pressed)));
@@ -153,6 +170,7 @@ export class RaceEngine {
   isBoosting = false;
   impact = 0;
   private wallCooldown = 0;
+  private wallContactSide = 0;
   private usedBoostPad = -1;
   private steering=0;
   /** Smoothed driver's last steering command, shared only within this engine. */
@@ -192,6 +210,7 @@ export class RaceEngine {
     this.reason = null;
     this.count = 3.5;
     this.wallCooldown = 0;
+    this.wallContactSide = 0;
     this.usedBoostPad = -1;
     this.lastBoostPadDistance = -1;
     this.impact = 0;
@@ -212,7 +231,7 @@ export class RaceEngine {
    */
   recover(): boolean {
     if(!this.recoveryReady)return false;
-    const gate=Math.min(3,Math.floor(Math.max(0,this.progress-1e-6)*4));
+    const gate=Math.min(3,this.highestScoredCheckpoint);
     const t=gate*.25;
     const spot=trackAt(t);
     this.position.copy(spot.position);
@@ -225,7 +244,9 @@ export class RaceEngine {
     this.sectorTimes.length=gate;
     this.lastSectorTime=gate>0?this.sectorTimes[gate-1]??null:null;
     this.lastSector=gate>0?gate:null;
-    this.sectorStartTime=this.lapTime+5;
+    // The time penalty belongs to the current split too; otherwise the sum
+    // of displayed sector times silently diverges from the official lap time.
+    this.sectorStartTime=this.lapTime;
     this.speed=0;
     this.roll=0;
     this.pitch=0;
@@ -236,6 +257,7 @@ export class RaceEngine {
     this.boost=Math.max(0,this.boost-25);
     this.shield=Math.max(1,this.shield-8);
     this.wallCooldown=1;
+    this.wallContactSide=0;
     this.recoveryCooldown=8;
     this.usedBoostPad=-1;
     this.lastBoostPadDistance=(this.lap-1)+t;
@@ -307,9 +329,13 @@ export class RaceEngine {
     const boundary = ROAD_HALF_WIDTH - 1.5;
     if (Math.abs(road.lateral) > boundary) {
       const side = Math.sign(road.lateral);
+      const newImpact=this.wallContactSide!==side;
+      this.wallContactSide=side;
       this.position.x = road.centerX + road.rightX * boundary * side;
       this.position.z = road.centerZ + road.rightZ * boundary * side;
-      if (this.wallCooldown <= 0 && this.speed > 12) {
+      // A continuous scrape against the same rail is one collision, not
+      // new full-speed shield damage every cooldown cycle.
+      if (newImpact && this.wallCooldown <= 0 && this.speed > 12) {
         // Resolve a real impact once, not exponential drag every frame while
         // the craft is touching a rail. Damage scales with actual impact speed.
         const impactSpeed = this.speed;
@@ -329,52 +355,66 @@ export class RaceEngine {
         this.isBoosting = false;
         return;
       }
+    }else{
+      this.wallContactSide=0;
     }
 
-    // Race progress is projected onto the same sampled spline as the road mesh.
-    let travel = road.t - this.previousT;
-    if (travel < -0.5) travel += 1;
-    if (travel > 0.5) travel -= 1;
-    this.previousT = road.t;
-    // Use signed progress, not the sum of forward movements. Reversing and
-    // re-crossing a checkpoint must never award a second segment.
-    if (Math.abs(travel) < 0.035) {
-      this.progress = Math.max(0, this.progress + travel);
+    // The road and its collision projector remain the only race source.
+    // Reject discontinuous projection jumps (e.g. overlapping spline arms)
+    // rather than granting a segment that the craft never physically drove.
+    const previousTrackT=this.previousT;
+    let travel=road.t-previousTrackT;
+    if(travel<-.5)travel+=1;
+    if(travel>.5)travel-=1;
+    this.previousT=road.t;
+    const maximumProgressStep=Math.max(.006,3*this.speed*dt/TRACK_LENGTH);
+    const validTravel=Math.abs(travel)<=maximumProgressStep;
+    const previousProgress=this.progress;
+    if(validTravel){
+      this.progress=Math.max(0,this.progress+travel);
     }
-    this.checkpoints=[0.25,0.5,0.75].filter(gate=>this.progress>=gate).length;
-    // Record actual cumulative sector splits at each first forward crossing.
-    // Reverse travel cannot create a new sector or duplicate a split.
-    if(this.checkpoints>this.highestScoredCheckpoint && travel>0){
-      for(let gate=this.highestScoredCheckpoint;gate<this.checkpoints;gate++){
+
+    // Score a quarter-sector at most once in this lap, only when actually
+    // crossing it forward and in order; reverse re-crossing is not credit.
+    if(validTravel && travel>0 && this.highestScoredCheckpoint<3){
+      const gate=(this.highestScoredCheckpoint+1)*.25;
+      if(previousProgress<gate && this.progress>=gate){
         const split=this.lapTime-this.sectorStartTime;
-        this.sectorTimes[gate]=split;
+        this.sectorTimes[this.highestScoredCheckpoint]=split;
         this.lastSectorTime=split;
-        this.lastSector=gate+1;
+        this.lastSector=this.highestScoredCheckpoint+1;
         this.sectorStartTime=this.lapTime;
+        this.highestScoredCheckpoint++;
       }
-      this.highestScoredCheckpoint=this.checkpoints;
     }
-    if (this.progress >= 1 && this.checkpoints === 3) {
+    this.checkpoints=this.highestScoredCheckpoint;
+
+    // Merely accumulating 100% progress cannot finish a lap. The vehicle
+    // must cross the physical start/finish seam forward after S1-S3.
+    const crossedFinish=validTravel && travel>0 &&
+      previousTrackT>.95 && road.t<.05;
+    if(crossedFinish && this.highestScoredCheckpoint===3 && this.progress>=.98){
       const finalSector=this.lapTime-this.sectorStartTime;
       this.sectorTimes[3]=finalSector;
       this.lastSectorTime=finalSector;
       this.lastSector=4;
       this.lapTimes.push(this.lapTime);
-      if (this.bestLap === null || this.lapTime < this.bestLap) {
-        this.bestLap = this.lapTime;
+      if(this.bestLap===null || this.lapTime<this.bestLap){
+        this.bestLap=this.lapTime;
         saveBestLap(this.lapTime);
       }
-      this.lapTime = 0;
+      this.lapTime=0;
       this.sectorStartTime=0;
-      this.progress -= 1;
-      this.checkpoints = 0;
+      this.progress=Math.max(0,this.progress-1);
       this.highestScoredCheckpoint=0;
+      this.checkpoints=0;
       this.sectorTimes=[];
-      this.lap += 1;
-      if (this.lap > MAX_LAPS) {
-        this.phase = 'finished';
-        this.reason = 'complete';
-        this.isBoosting = false;
+      this.lap++;
+      if(this.lap>MAX_LAPS){
+        this.phase='finished';
+        this.reason='complete';
+        this.isBoosting=false;
+        return; // Finished runs cannot trigger later boost-pad rewards.
       }
     }
 
@@ -385,7 +425,7 @@ export class RaceEngine {
     // Pads are three physical centered strips, not a full-width invisible
     // reward zone; no farming energy by rocking backward across their edges.
     const onPad = nearestPad >= 0 && Math.abs(road.lateral) < 8.25 &&
-      travel > 0 && this.speed > 8;
+      validTravel && travel > 0 && this.speed > 8;
     if (onPad && this.usedBoostPad !== nearestPad &&
       distance - this.lastBoostPadDistance > .12) {
       this.boost = Math.min(100, this.boost + 24);

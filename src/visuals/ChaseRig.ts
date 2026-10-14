@@ -14,6 +14,7 @@ export class ChaseRig {
   private oldPhase='';
   private lastMode='';
   private heading=0;
+  private previousVehicle=new Vector3();
   reset(){this.initialised=false;this.oldPhase='';this.lastMode='';}
   update(
     camera:Camera,game:RaceEngine,delta:number,
@@ -25,6 +26,10 @@ export class ChaseRig {
     const menu=phase==='menu';
     const orbit=showcase&&menu;
     const angle=game.heading;
+    const firstFrame=!this.initialised;
+    const teleported=!firstFrame &&
+      this.previousVehicle.distanceToSquared(game.position)>38*38;
+    this.previousVehicle.copy(game.position);
     const modeChanged=this.lastMode!==mode;
     const phaseChanged=this.oldPhase!==phase;
     this.lastMode=mode; this.oldPhase=phase;
@@ -68,7 +73,15 @@ export class ChaseRig {
       );
     }
     const cameraLerp=1-Math.exp(-dt*(modeChanged?4:reducedMotion?13:5.5));
-    camera.position.lerp(tmpPosition,cameraLerp);
+    // Recovery and grid restart move the craft instantly. Snap the camera
+    // too, instead of flying the camera through buildings for several seconds.
+    if(firstFrame||teleported){
+      camera.position.copy(tmpPosition);
+      this.focus.copy(tmpLook);
+      this.heading=angle;
+    }else{
+      camera.position.lerp(tmpPosition,cameraLerp);
+    }
     // Clamp the chase camera above nearby road height when cresting a hill
     // or following a tight bend. The collision spline remains unchanged.
     if(!orbit){
