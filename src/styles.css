@@ -271,3 +271,29 @@ h1,h2,p{margin-top:0}
  .touch-control{height:49px}
  .site-footer{display:none}
 }
+
+/* V7: source-backed sector feedback and mobile track rescue. */
+.split-hud{font-variant-numeric:tabular-nums;color:#eac49e!important;font-size:10px;white-space:nowrap}
+.recovery-count{font-size:9px;color:#f6b18a!important;letter-spacing:.06em}
+.secondary-action:disabled,.touch-control:disabled{opacity:.38;cursor:not-allowed}
+.dialog-panel>.secondary-action>span{font:600 10px 'DM Mono',monospace;color:#eba87f;white-space:nowrap}
+.touch-recover{position:absolute;bottom:70px;left:0;z-index:3;
+ height:32px;min-width:81px;font:700 9px 'DM Mono',monospace;letter-spacing:.08em;
+ border-color:#e9ae83;color:#ffd0a5}
+@media(max-width:580px){
+ .race-top .split-hud{font-size:9px;margin-top:3px}
+ .touch-bar{gap:8px;left:9px;right:9px}
+ .touch-group{gap:4px}
+ .touch-control{min-width:40px;padding:0 7px;font-size:11px}
+ .touch-recover{font-size:9px;padding:0 9px}
+ .race-bottom{bottom:137px}
+ .status-meters{width:39vw}
+ .recovery-count{font-size:8px}
+ .dialog-panel>.secondary-action>span{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:500px){
+ .touch-recover{bottom:56px}
+ .race-bottom{bottom:60px}
+ .split-hud{display:none}
+ .recovery-count{display:none}
+}

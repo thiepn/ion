@@ -86,6 +86,9 @@ export function App() {
   const start=useCallback(()=>{game.start();setGarage(false);setHelp(false);refresh()},[game,refresh]);
   const mainMenu=useCallback(()=>{game.menu();setGarage(false);setHelp(false);refresh()},[game,refresh]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
+  const recover=useCallback(()=>{
+    if(game.recover())refresh();
+  },[game,refresh]);
 
   useEffect(()=>{
     input.attach();
@@ -93,6 +96,7 @@ export function App() {
       if (action==='pause') togglePause();
       if (action==='reset' && newest.current.phase!=='menu') start();
       if (action==='camera') toggleCamera();
+      if (action==='recover') recover();
     };
     const onHidden=()=>{
       if (document.hidden && (game.phase==='racing'||game.phase==='countdown')){
@@ -106,7 +110,7 @@ export function App() {
       input.onKeyAction=undefined;
       input.detach();
     };
-  },[game,input,refresh,start,togglePause,toggleCamera]);
+  },[game,input,refresh,start,togglePause,toggleCamera,recover]);
 
   const onTelemetry=useCallback((next:RaceSnapshot)=>setData(next),[]);
   const onRendererFailure=useCallback((message:string)=>{
@@ -164,7 +168,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V5 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V7 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
@@ -180,6 +184,9 @@ export function App() {
               <span className="eyebrow">CURRENT LAP</span>
               <strong>{String(data.lap).padStart(2,'0')}<span className="divider-text"> / 0{data.laps}</span></strong>
               <span className="quiet">SECTOR {Math.min(data.nextGate,4)} / 4</span>
+              <span className="quiet split-hud">{data.lastSectorTime===null?
+                'FIRST SPLIT PENDING':
+                `LAST S${data.lastSector} · ${formatTime(data.lastSectorTime)}`}</span>
             </div>
             <div className="race-value race-time">
               <span className="eyebrow">RACE TIME</span>
@@ -192,7 +199,8 @@ export function App() {
             <div className="status-meters">
               <Meter label="SHIELD" amount={data.shield}/>
               <Meter label="BOOST" amount={data.boost} accent="coral"/>
-              <span className="race-note">WASD / ARROWS: DRIVE &nbsp;·&nbsp; SPACE: BOOST &nbsp;·&nbsp; V: CAMERA</span>
+              <span className="race-note">WASD / ARROWS: DRIVE &nbsp;·&nbsp; SPACE: BOOST &nbsp;·&nbsp; V: CAMERA &nbsp;·&nbsp; T: RECOVER</span>
+              {data.recoveryCount>0&&<span className="quiet recovery-count">TRACK RECOVERIES: {data.recoveryCount}</span>}
             </div>
             <div className="speed-area">
               <div className="speed-number mono">{data.speedKmh}</div>
@@ -279,6 +287,9 @@ export function App() {
           <h2>PAUSED<span className="period">.</span></h2>
           <p>Your run is frozen. Resume from the same position and lap.</p>
           <button type="button" className="cta" onClick={togglePause}>RESUME RACE <span>↗</span></button>
+          <button type="button" className="secondary-action" disabled={!data.recoveryReady} onClick={recover}>
+            RECOVER TO LAST SECTOR <span>+5 S · −8 SHIELD</span>
+          </button>
           <button type="button" className="secondary-action" onClick={start}>RESTART FROM GRID</button>
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
           <div className="pause-options">
@@ -324,8 +335,9 @@ export function App() {
               <div><dt>PAUSE</dt><dd>ESC / P</dd></div>
               <div><dt>CAMERA</dt><dd>V</dd></div>
               <div><dt>RESTART</dt><dd>R</dd></div>
+              <div><dt>TRACK RECOVERY</dt><dd>T / GAMEPAD LB</dd></div>
             </dl>
-            <p>Gamepad left stick, triggers and face buttons are supported. Touch controls appear on small screens. Orange track pads replenish boost.</p>
+            <p>Gamepad left stick, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls appear on small screens. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
             <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
         </div>
@@ -334,6 +346,8 @@ export function App() {
       {isRace && (
         <div className="touch-bar" aria-label="Mobile driving controls">
           <div className="touch-group">
+            <button type="button" className="touch-control touch-recover" disabled={!data.recoveryReady}
+              onClick={recover} aria-label="Recover to most recent checkpoint with penalty">RECOVER</button>
             <TouchButton code="ArrowLeft" text="◀" input={input}/>
             <TouchButton code="ArrowRight" text="▶" input={input}/>
           </div>

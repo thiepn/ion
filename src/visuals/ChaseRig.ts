@@ -1,5 +1,5 @@
 import { MathUtils, PerspectiveCamera, Vector3, type Camera } from 'three';
-import { trackAt } from '../track';
+import { nearestTrack, trackAt } from '../track';
 import type { RaceEngine } from '../simulation';
 
 type CameraMode='CHASE'|'NEAR';
@@ -69,6 +69,14 @@ export class ChaseRig {
     }
     const cameraLerp=1-Math.exp(-dt*(modeChanged?4:reducedMotion?13:5.5));
     camera.position.lerp(tmpPosition,cameraLerp);
+    // Clamp the chase camera above nearby road height when cresting a hill
+    // or following a tight bend. The collision spline remains unchanged.
+    if(!orbit){
+      const ground=nearestTrack(camera.position.x,camera.position.z,game.previousT);
+      if(ground.distance<25){
+        camera.position.y=Math.max(camera.position.y,ground.y+2.15);
+      }
+    }
     this.focus.lerp(tmpLook,blend);
     camera.lookAt(this.focus);
 
