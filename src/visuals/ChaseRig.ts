@@ -104,8 +104,11 @@ export class ChaseRig {
       const fov=(mode==='NEAR'?69:65)
         +(reducedMotion?2:speed*11)
         +(game.isBoosting && !reducedMotion?4:0);
-      camera.fov=MathUtils.damp(camera.fov,fov,3.8,dt);
-      camera.updateProjectionMatrix();
+      const nextFov=MathUtils.damp(camera.fov,fov,3.8,dt);
+      if(Math.abs(nextFov-camera.fov)>.015){
+        camera.fov=nextFov;
+        camera.updateProjectionMatrix();
+      }
     }
   }
 }

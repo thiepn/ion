@@ -112,19 +112,14 @@ export function App() {
     input.attach();
     input.onGamepadDisconnect=()=>{
       disconnectedController.current=true;
-      const active=game.phase==='racing'||game.phase==='countdown';
-      if(active)game.pause();
-      setGamepadNotice(active?
-        'Controller disconnected. Race paused; reconnect or use the keyboard.':
-        'Controller disconnected. Keyboard and touch controls remain available.');
+      if(game.phase==='racing'||game.phase==='countdown')game.pause();
+      setGamepadNotice('Controller disconnected. Race paused; reconnect or use the keyboard.');
       refresh();
     };
     input.onGamepadConnect=()=>{
-      if(disconnectedController.current){
+      if(disconnectedController.current) {
         disconnectedController.current=false;
-        setGamepadNotice(game.phase==='paused'?
-          'Controller reconnected. Release all buttons, then resume your race.':
-          'Controller reconnected. Release held buttons before using gamepad actions.');
+        setGamepadNotice('Controller reconnected. Release all buttons, then resume your race.');
       }
     };
     input.onKeyAction=(action)=>{
@@ -141,9 +136,21 @@ export function App() {
         refresh();
       }
     };
+    // A window may lose keyboard focus without becoming document.hidden
+    // (system dialogs, task switching, another window over the game).
+    // Pause the authoritative race and clear held controls in both cases.
+    const onBlur=()=>{
+      input.clear();
+      if(game.phase==='racing'||game.phase==='countdown'){
+        game.pause();
+        refresh();
+      }
+    };
     document.addEventListener('visibilitychange',onHidden);
+    window.addEventListener('blur',onBlur);
     return ()=>{
       document.removeEventListener('visibilitychange',onHidden);
+      window.removeEventListener('blur',onBlur);
       input.onKeyAction=undefined;
       input.onGamepadConnect=undefined;
       input.onGamepadDisconnect=undefined;
@@ -215,7 +222,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V9 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V10 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
@@ -355,7 +362,7 @@ export function App() {
         <main className="dialog-panel finish-panel">
           <div className="label-line">RACE CONTROL / {won?'RUN COMPLETE':'VEHICLE DISABLED'}</div>
           <h2>{won?'FINISH':'RUN OVER'}<span className="period">.</span></h2>
-          <p>{won?'Three laps complete. Your result was recorded locally.':'Your shield failed after too many collisions. Try a cleaner line.'}</p>
+          <p>{won?'Three laps complete. Your best lap is saved locally; this run’s splits are shown below.':'Your shield failed after too many collisions. Try a cleaner line.'}</p>
           {won && <div className="results">
             <div><span>TOTAL TIME</span><strong className="mono">{formatTime(data.elapsed)}</strong></div>
             {data.lapTimes.map((lap,index)=>(

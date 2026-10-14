@@ -338,3 +338,14 @@ h1,h2,p{margin-top:0}
 @media(orientation:landscape) and (max-height:500px){
  .gamepad-notice{top:40px;max-width:420px;padding:6px 9px;font-size:10px}
 }
+
+/* V10: first-paint application shell, independent of the Three.js bundle. */
+.boot-shell{height:100dvh;width:100%;display:flex;flex-direction:column;
+ justify-content:center;align-items:center;background:#080e19;color:#e7f5f8;
+ text-align:center;padding:24px}
+.boot-identity{font:900 clamp(80px,16vw,166px)/.9 'Barlow Condensed',Impact,sans-serif;
+ letter-spacing:-.04em}
+.boot-identity span{color:#7ddfe5}
+.boot-shell p{font:600 11px 'DM Mono',monospace;letter-spacing:.19em;color:#99b8c3}
+.boot-rule{width:clamp(170px,32vw,420px);height:1px;background:#50717e;margin:28px 0}
+.boot-shell strong{font:700 11px 'DM Mono',monospace;letter-spacing:.13em;color:#f1ab81}

@@ -147,6 +147,7 @@ function startGate(t: number, accent: string) {
 }
 
 function CircuitDetails() {
+  const monolithRef=useRef<InstancedMesh>(null);
   const supportRef=useRef<InstancedMesh>(null);
   const towersRef=useRef<InstancedMesh>(null);
   const roofsRef=useRef<InstancedMesh>(null);
@@ -286,6 +287,22 @@ function CircuitDetails() {
       width: 12 + random() * 19,
     }));
   }, []);
+  useEffect(()=>{
+    const mesh=monolithRef.current;
+    if(!mesh)return;
+    const dummy=new Object3D();
+    farMonoliths.forEach((m,i)=>{
+      dummy.position.set(Math.sin(m.angle)*530,-25+m.height/2,Math.cos(m.angle)*530);
+      dummy.rotation.set(0,0,0);
+      dummy.scale.set(m.width,m.height,m.width*.7);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i,dummy.matrix);
+      mesh.setColorAt(i,new Color(i%3===0?'#263343':'#172333'));
+    });
+    mesh.instanceMatrix.needsUpdate=true;
+    if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    mesh.computeBoundingSphere();
+  },[farMonoliths]);
 
   return (
     <group>
@@ -297,12 +314,10 @@ function CircuitDetails() {
         <cylinderGeometry args={[2.8,3.7,1,8]}/>
         <meshStandardMaterial color="#243545" metalness={.6} roughness={.67}/>
       </instancedMesh>
-      {farMonoliths.map((m, i) => (
-        <mesh key={'far' + i} position={[Math.sin(m.angle) * 530, -25 + m.height/2, Math.cos(m.angle)*530]}>
-          <boxGeometry args={[m.width, m.height, m.width * 0.7]} />
-          <meshStandardMaterial color={i%3 ? '#172333' : '#263343'} metalness={0.2} roughness={0.95} />
-        </mesh>
-      ))}
+      <instancedMesh ref={monolithRef} args={[undefined,undefined,farMonoliths.length]}>
+        <boxGeometry args={[1,1,1]}/>
+        <meshStandardMaterial color="#ffffff" metalness={.2} roughness={.95}/>
+      </instancedMesh>
       <instancedMesh ref={towersRef} args={[undefined,undefined,buildingData.length]} receiveShadow>
         <boxGeometry args={[1,1,1]}/>
         <meshStandardMaterial color="#ffffff" metalness={.57} roughness={.7}/>
