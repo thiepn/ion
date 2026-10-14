@@ -3,6 +3,7 @@ const RaceStage=lazy(()=>import('./RaceStage'));
 import { RuntimeBoundary } from './visuals/RuntimeBoundary';
 import { Minimap } from './Minimap';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
+import { RaceAudio } from './audio';
 
 type CameraMode = 'CHASE' | 'NEAR';
 type Quality = 'PERFORMANCE' | 'QUALITY';
@@ -71,6 +72,9 @@ function TouchButton({ code, text, input }: { code:string; text:string; input:In
 export function App() {
   const game = useMemo(()=>new RaceEngine(),[]);
   const input = useMemo(()=>new InputController(),[]);
+  const audio = useMemo(()=>new RaceAudio(),[]);
+  const [soundEnabled,setSoundEnabled]=useState(false);
+  const [soundError,setSoundError]=useState(false);
   const [data,setData]=useState<RaceSnapshot>(()=>game.snapshot());
   const [cameraMode,setCameraMode]=useState<CameraMode>('CHASE');
   const [quality,setQuality]=useState<Quality>(()=>{
@@ -105,7 +109,27 @@ export function App() {
   const newest=useRef(data);
   newest.current=data;
 
-  const refresh=useCallback(()=>setData(game.snapshot()),[game]);
+  const refresh=useCallback(()=>{
+    const snapshot=game.snapshot();
+    audio.update(snapshot);
+    setData(snapshot);
+  },[game,audio]);
+  const toggleSound=useCallback(async ()=>{
+    if(audio.enabled){
+      audio.disable();
+      setSoundEnabled(false);
+      setSoundError(false);
+      return;
+    }
+    const enabled=await audio.enable();
+    if(enabled)audio.update(game.snapshot());
+    setSoundEnabled(enabled);
+    setSoundError(!enabled);
+  },[audio,game]);
+  useEffect(()=>{
+    audio.reopen();
+    return ()=>audio.dispose();
+  },[audio]);
   const togglePause=useCallback(()=>{
     // Never carry a stale keyboard/pointer boost or throttle through pause.
     input.clear();
@@ -184,7 +208,10 @@ export function App() {
     };
   },[game,input,refresh,start,togglePause,toggleCamera,recover]);
 
-  const onTelemetry=useCallback((next:RaceSnapshot)=>setData(next),[]);
+  const onTelemetry=useCallback((next:RaceSnapshot)=>{
+    audio.update(next);
+    setData(next);
+  },[audio]);
   const onRendererFailure=useCallback((message:string)=>{
     input.clear();
     if(game.phase==='racing'||game.phase==='countdown')game.pause();
@@ -218,6 +245,12 @@ export function App() {
         </RuntimeBoundary>
       </div>
       <div className="vignette" aria-hidden="true"/>
+      {soundError && (
+        <div className="gamepad-notice" role="status">
+          Browser audio is unavailable. The race remains fully playable without sound.
+          <button type="button" onClick={()=>setSoundError(false)} aria-label="Dismiss audio warning">×</button>
+        </div>
+      )}
       {gamepadNotice && (
         <div className="gamepad-notice" role="status" aria-live="polite">
           <span>{gamepadNotice}</span>
@@ -252,7 +285,11 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V14 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V15 · DEVELOPMENT BUILD</span>
+          <button className="small-button" type="button" onClick={toggleSound}
+            aria-pressed={soundEnabled} aria-label={soundEnabled?'Mute race audio':'Enable race audio'}>
+            AUDIO {soundEnabled?'ON':'OFF'}
+          </button>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
@@ -437,6 +474,7 @@ export function App() {
               <div><dt>TRACK RECOVERY</dt><dd>T / GAMEPAD LB</dd></div>
             </dl>
             <p>Gamepad left stick, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls appear on small screens. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
+            <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring.</p>
             <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
         </div>
@@ -463,7 +501,7 @@ export function App() {
         <span>
           <a href="https://github.com/thiepn/ion" target="_blank" rel="noopener noreferrer">SOURCE</a>
           <a href="/ion/credits.html" target="_blank" rel="noopener noreferrer">CREDITS</a>
-          <span className="audio-status">AUDIO — PLANNED</span>
+          <span className="audio-status">OPTIONAL SYNTH AUDIO</span>
         </span>
       </footer>
       <span className="sr-only" aria-live="polite">{data.phase==='racing'?'Race in progress':data.phase==='finished'?'Race ended':data.phase}</span>
