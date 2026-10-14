@@ -296,13 +296,13 @@ export function App() {
         <div className="identity">
           <span className="identity-mark">I<span>O</span>N</span>
           <span className="identity-divider" aria-hidden="true"/>
-          <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
+          <span className="identity-detail">NIGHTSHIFT / TIME TRIAL</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V16 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V17 · CIRCUIT REWORK</span>
           <button className="small-button" type="button" onClick={toggleSound}
             aria-pressed={soundEnabled} aria-label={soundEnabled?'Mute race audio':'Enable race audio'}>
-            AUDIO {soundEnabled?'ON':'OFF'}
+            SOUND {soundEnabled?'ON':'OFF'}
           </button>
           {isRace && <>
             <button className="small-button camera-button" type="button"
@@ -348,7 +348,7 @@ export function App() {
             <div className="status-meters">
               <Meter label="SHIELD" amount={data.shield}/>
               <Meter label="BOOST" amount={data.boost} accent="coral"/>
-              <span className="race-note">WASD / ARROWS: DRIVE &nbsp;·&nbsp; SPACE: BOOST &nbsp;·&nbsp; V: CAMERA &nbsp;·&nbsp; T: RECOVER</span>
+              <span className="race-note">W / ↑ ACCELERATE · A D / ← → STEER · S / ↓ BRAKE · SPACE BOOST</span>
               {data.recoveryCount>0&&<span className="quiet recovery-count">TRACK RECOVERIES: {data.recoveryCount}</span>}
             </div>
             <div className="speed-area">
@@ -366,17 +366,17 @@ export function App() {
 
       {data.phase==='menu' && !garage && (
         <main className="menu-panel">
-          <div className="menu-rule"><span>01 — PILOT INITIALIZATION</span><span>SYSTEM ONLINE</span></div>
-          <p className="intro-overline">SINGLE PLAYER / CIRCUIT 01</p>
-          <h1>THE EDGE OF<br/><em>CONTROL.</em></h1>
-          <p className="intro-copy">One machine. One elevated circuit. Push the limit, hold the racing line, and set your fastest lap.</p>
+          <div className="menu-rule"><span>ION / NIGHTSHIFT</span><span>3 LAPS · TIME TRIAL</span></div>
+          <p className="intro-overline">TAKE THE LINE. BEAT YOUR TIME.</p>
+          <h1>DRIVE<br/><em>THE NIGHT.</em></h1>
+          <p className="intro-copy">A new elevated circuit with chicanes, crests and long straights. Three laps. No traffic. Just the line, your machine and the clock.</p>
           <div className="menu-actions">
             <button type="button" className="cta" onClick={start}>START TIME TRIAL <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setGarage(true)}>CUSTOMIZE HOVERCRAFT <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setHelp(true)}>CONTROLS & HOW TO PLAY <span aria-hidden="true">↗</span></button>
           </div>
           <div className="menu-stats">
-            <div><span>TRACK</span><b>01 / NIGHTSHIFT</b></div>
+            <div><span>TRACK</span><b>01 / NIGHTSHIFT REWORK</b></div>
             <div><span>YOUR BEST LAP</span><b className="mono">{data.bestLap===null?'— NO RECORD —':formatTime(data.bestLap)}</b></div>
           </div>
         </main>
@@ -495,18 +495,20 @@ export function App() {
       )}
 
       {isRace && (
-        <div className="touch-bar" aria-label="Mobile driving controls">
-          <div className="touch-group">
-            <button type="button" className="touch-control touch-recover" disabled={!data.recoveryReady}
-              onClick={recover} aria-label="Recover to most recent checkpoint with penalty">RECOVER</button>
-            <TouchButton code="ArrowLeft" text="◀" input={input}/>
-            <TouchButton code="ArrowRight" text="▶" input={input}/>
+        <div className="touch-bar" aria-label="Thumb driving controls">
+          <div className="touch-zone touch-steering" role="group" aria-label="Steering">
+            <TouchButton code="ArrowLeft" text="←" input={input}/>
+            <TouchButton code="ArrowRight" text="→" input={input}/>
           </div>
-          <div className="touch-group">
+          <div className="touch-zone touch-driving" role="group" aria-label="Throttle, brake and boost">
             <TouchButton code="Space" text="BOOST" input={input}/>
-            <TouchButton code="ArrowDown" text="BRAKE" input={input}/>
             <TouchButton code="ArrowUp" text="GO" input={input}/>
+            <TouchButton code="ArrowDown" text="BRAKE" input={input}/>
           </div>
+          <button type="button" className="touch-recover" disabled={!data.recoveryReady}
+            onClick={recover} aria-label="Recover to most recent earned checkpoint with penalty">
+            RECOVER · +5 S
+          </button>
         </div>
       )}
 
