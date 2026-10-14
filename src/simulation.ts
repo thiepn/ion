@@ -30,6 +30,7 @@ export type RaceSnapshot = {
   lastSector: number | null;
   recoveryReady: boolean;
   recoveryCount: number;
+  padSurge: boolean;
   trackWarning: 'wrong-way'|'missed-checkpoint'|'projection-recovered'|null;
 };
 
@@ -249,6 +250,8 @@ export class RaceEngine {
   private missedCheckpoint=false;
   private projectionWarningSeconds=0;
   private usedBoostPad = -1;
+  private padSurgeSeconds=0;
+  get padSurge(){return this.padSurgeSeconds>0;}
   private steering=0;
   /** Smoothed driver's last steering command, shared only within this engine. */
   get steeringAmount(){return this.steering;}
@@ -293,6 +296,7 @@ export class RaceEngine {
     this.missedCheckpoint=false;
     this.projectionWarningSeconds=0;
     this.usedBoostPad = -1;
+    this.padSurgeSeconds=0;
     this.lastBoostPadDistance = -1;
     this.impact = 0;
     this.steering=0;
@@ -345,6 +349,7 @@ export class RaceEngine {
     this.projectionWarningSeconds=0;
     this.recoveryCooldown=8;
     this.usedBoostPad=-1;
+    this.padSurgeSeconds=0;
     this.lastBoostPadDistance=(this.lap-1)+t;
     this.recoveryCount++;
     return true;
@@ -377,6 +382,7 @@ export class RaceEngine {
     this.lapTime += dt;
     this.wallCooldown = Math.max(0, this.wallCooldown - dt);
     this.recoveryCooldown = Math.max(0, this.recoveryCooldown - dt);
+    this.padSurgeSeconds=Math.max(0,this.padSurgeSeconds-dt);
     this.impact = Math.max(0, this.impact - dt * 2.4);
     this.projectionWarningSeconds=Math.max(0,this.projectionWarningSeconds-dt);
 
@@ -390,8 +396,15 @@ export class RaceEngine {
     const acceleration=this.isBoosting?46:32;
     const braking=Math.max(0,controls.brake)*58;
     const drag=1.35 + .00093*this.speed*this.speed;
-    this.speed=Math.max(0,Math.min(this.isBoosting?115:86,
-      this.speed+(controls.throttle*acceleration-braking-drag)*dt));
+    const cap=this.isBoosting?115:this.padSurgeSeconds>0?112:86;
+    // Pad thrust is a short real surge. Do not snap from 112 straight back
+    // to 86 on the following fixed step: smoothly shed overspeed when the
+    // pad expires, preserving the original speed limits for sustained drive.
+    const overspeedDrag=Math.max(0,this.speed-cap)*3.2;
+    const forwardThrust=this.speed>=cap?0:controls.throttle*acceleration;
+    this.speed=Math.max(0,Math.min(115,
+      this.speed+(forwardThrust-braking-drag-overspeedDrag)*dt));
+    if(this.speed>cap && this.isBoosting)this.speed=cap;
 
     // Time-consistent input filtering removes digital steering snap and
     // works with continuous gamepad axes without introducing a second physics
@@ -587,6 +600,7 @@ export class RaceEngine {
       distance - this.lastBoostPadDistance > .12) {
       this.boost = Math.min(100, this.boost + 24);
       this.speed = Math.min(112, this.speed + 16);
+      this.padSurgeSeconds=.9;
       this.usedBoostPad = nearestPad;
       this.lastBoostPadDistance = distance;
     } else if (nearestPad === -1) {
@@ -625,6 +639,7 @@ export class RaceEngine {
       lastSector:this.lastSector,
       recoveryReady:this.recoveryReady,
       recoveryCount:this.recoveryCount,
+      padSurge:this.padSurgeSeconds>0,
       trackWarning:this.wrongWaySeconds>.85?'wrong-way':
         this.projectionWarningSeconds>0?'projection-recovered':
         this.missedCheckpoint?'missed-checkpoint':null,

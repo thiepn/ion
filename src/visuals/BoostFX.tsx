@@ -41,7 +41,7 @@ export function BoostFX({game,quality}:{
     if(!active)return;
     node.position.copy(game.position);
     node.rotation.set(0,game.heading,0);
-    const boost=game.isBoosting;
+    const boost=game.isBoosting||game.padSurge;
     const power=Math.min(1,game.speed/100);
     const length=boost?19+power*10:5+power*9;
     const width=boost?1.9:1.05;

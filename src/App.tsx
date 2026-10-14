@@ -252,7 +252,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V13 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V14 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>
@@ -303,7 +303,8 @@ export function App() {
             <div className="speed-area">
               <div className="speed-number mono">{data.speedKmh}</div>
               <div className="speed-unit">KM/H</div>
-              <div className="speed-caption">{data.isBoosting?'BOOST ACTIVE':'ANTI-GRAVITY DRIVE'}</div>
+              <div className="speed-caption">{data.isBoosting?'BOOST ACTIVE':
+                data.padSurge?'BOOST PAD SURGE':'ANTI-GRAVITY DRIVE'}</div>
             </div>
           </div>
           {data.phase==='countdown' && <div className="countdown" role="status"><span>STARTING IN</span><b>{data.count}</b></div>}
