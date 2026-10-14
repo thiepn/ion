@@ -126,7 +126,10 @@ export function App() {
     setSoundEnabled(enabled);
     setSoundError(!enabled);
   },[audio,game]);
-  useEffect(()=>()=>audio.dispose(),[audio]);
+  useEffect(()=>{
+    audio.reopen();
+    return ()=>audio.dispose();
+  },[audio]);
   const togglePause=useCallback(()=>{
     // Never carry a stale keyboard/pointer boost or throttle through pause.
     input.clear();
