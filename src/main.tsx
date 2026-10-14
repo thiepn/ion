@@ -1,6 +1,7 @@
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+import './v17.css';
 
 // Do not import the race engine, Three.js or the course before the UI shell.
 // The complete App is fetched separately, followed by the optional 3D stage.
