@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  AdditiveBlending, Color, ExtrudeGeometry, Group, Mesh, Shape,
+  AdditiveBlending, Color, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, PointLight, Shape,
 } from 'three';
 import type { RaceEngine } from '../simulation';
 
@@ -77,6 +77,9 @@ function Engine({x,game}:{x:number;game:RaceEngine}) {
     if(exhaust.current) {
       exhaust.current.scale.y=game.isBoosting?1.55:.47;
       exhaust.current.visible=game.speed>6;
+      const material=exhaust.current.material;
+      if(material instanceof MeshBasicMaterial)
+        material.opacity=game.isBoosting?.62:.22;
     }
   });
   return (
@@ -93,7 +96,7 @@ function Engine({x,game}:{x:number;game:RaceEngine}) {
         <circleGeometry args={[.38,28]}/>
         <meshBasicMaterial color={ELECTRIC} toneMapped={false}/>
       </mesh>
-      <mesh ref={exhaust} position={[0,0,-1.76]} rotation={[Math.PI/2,0,0]}>
+      <mesh ref={exhaust} position={[0,0,-1.76]} rotation={[-Math.PI/2,0,0]}>
         <cylinderGeometry args={[.32,.08,2.2,14]}/>
         <meshBasicMaterial color={ELECTRIC} transparent opacity={.27}
           blending={AdditiveBlending} depthWrite={false} toneMapped={false}/>
@@ -126,8 +129,10 @@ export function Craft({game,shipRef,hullRef,paint}:{
     fins.forEach(g => g.dispose());
   }, [hull, wings, fins]);
   const cockpit=useRef<Mesh>(null);
+  const boostLamp=useRef<PointLight>(null);
   useFrame(({clock})=>{
     if(cockpit.current) cockpit.current.rotation.y=Math.sin(clock.elapsedTime*.65)*.013;
+    if(boostLamp.current)boostLamp.current.intensity=game.isBoosting?12:game.speed>5?3.5:1;
   });
 
   return (
@@ -209,7 +214,7 @@ export function Craft({game,shipRef,hullRef,paint}:{
               <pointLight color="#67dff8" intensity={1.2} distance={7} decay={2}/>
             </group>
           ))}
-          <pointLight position={[0,0,-3.0]} color="#59ddf4" intensity={game.isBoosting?12:3} distance={16} decay={2}/>
+          <pointLight ref={boostLamp} position={[0,0,-3.0]} color="#59ddf4" intensity={2} distance={16} decay={2}/>
         </group>
       </group>
     </group>

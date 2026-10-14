@@ -54,47 +54,39 @@ export type NearestTrack = {
   rightZ: number;
 };
 
-/** Closest piecewise-linear centerline projection, without graphics dependencies. */
-export function nearestTrack(x: number, z: number): NearestTrack {
-  let best = Number.POSITIVE_INFINITY;
-  let segment = 0;
-  let fraction = 0;
-  let cx = 0;
-  let cz = 0;
-  for (let i = 0; i < SEGMENTS; i++) {
-    const a = TRACK_SAMPLES[i];
-    const b = TRACK_SAMPLES[i + 1];
-    const dx = b.x - a.x;
-    const dz = b.z - a.z;
-    const len2 = dx * dx + dz * dz;
-    const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len2));
-    const px = a.x + dx * u;
-    const pz = a.z + dz * u;
-    const dist2 = (x - px) ** 2 + (z - pz) ** 2;
-    if (dist2 < best) {
-      best = dist2;
-      segment = i;
-      fraction = u;
-      cx = px;
-      cz = pz;
-    }
-  }
-  const a = TRACK_SAMPLES[segment];
-  const b = TRACK_SAMPLES[segment + 1];
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  const length = Math.hypot(dx, dz) || 1;
-  const rightX = dz / length;
-  const rightZ = -dx / length;
-  const lateral = (x - cx) * rightX + (z - cz) * rightZ;
+/** Project onto the single authoritative track spline.
+ * A hint searches 45 neighboring segments first; a far-off-course position
+ * falls back to a global search instead of silently following the wrong lane.
+ */
+export function nearestTrack(x:number,z:number,hintT?:number): NearestTrack {
+  let best=Number.POSITIVE_INFINITY, segment=0, fraction=0, cx=0, cz=0;
+  const scan=(index:number)=>{
+    const i=(index+SEGMENTS)%SEGMENTS;
+    const a=TRACK_SAMPLES[i], b=TRACK_SAMPLES[i+1];
+    const dx=b.x-a.x, dz=b.z-a.z, len2=dx*dx+dz*dz;
+    const u=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/len2));
+    const px=a.x+u*dx, pz=a.z+u*dz;
+    const d=(x-px)**2+(z-pz)**2;
+    if(d<best){best=d;segment=i;fraction=u;cx=px;cz=pz;}
+  };
+  if(hintT!==undefined && Number.isFinite(hintT)){
+    const center=Math.floor((((hintT%1)+1)%1)*SEGMENTS);
+    for(let k=-22;k<=22;k++)scan(center+k);
+    // The local neighborhood is reliable inside or immediately beside the
+    // road; full scan recovers if a reset/large discontinuity moves us away.
+    if(best>(ROAD_HALF_WIDTH+12)**2)
+      for(let i=0;i<SEGMENTS;i++)scan(i);
+  }else for(let i=0;i<SEGMENTS;i++)scan(i);
+  const a=TRACK_SAMPLES[segment], b=TRACK_SAMPLES[segment+1];
+  const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz)||1;
+  const rightX=dz/length,rightZ=-dx/length;
   return {
-    t: (segment + fraction) / SEGMENTS,
-    distance: Math.sqrt(best),
-    lateral,
-    y: a.y + (b.y - a.y) * fraction,
-    centerX: cx, centerZ: cz,
-    heading: Math.atan2(dx, dz),
-    rightX, rightZ,
+    t:(segment+fraction)/SEGMENTS,
+    distance:Math.sqrt(best),
+    lateral:(x-cx)*rightX+(z-cz)*rightZ,
+    y:a.y+(b.y-a.y)*fraction,
+    centerX:cx,centerZ:cz,
+    heading:Math.atan2(dx,dz),rightX,rightZ,
   };
 }
 
