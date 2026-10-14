@@ -343,11 +343,12 @@ function CircuitDetails() {
   );
 }
 
-function AtmosphericParticles() {
+function AtmosphericParticles({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
   const geometry = useMemo(() => {
     const r = seeded(11002);
-    const coords = new Float32Array(700 * 3);
-    for (let i = 0; i < 700; i++) {
+    const count=quality==='QUALITY'?700:220;
+    const coords = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
       coords[i*3] = (r()-.5)*950;
       coords[i*3+1] = 15 + r()*130;
       coords[i*3+2] = (r()-.5)*950;
@@ -355,7 +356,7 @@ function AtmosphericParticles() {
     const geo = new BufferGeometry();
     geo.setAttribute('position',new Float32BufferAttribute(coords,3));
     return geo;
-  },[]);
+  },[quality]);
   useEffect(()=>()=>geometry.dispose(),[geometry]);
   return (
     <points geometry={geometry}>
@@ -431,7 +432,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <RaceLineGuidance game={game} quality={quality}/>
       <TrackInfrastructure quality={quality}/>
       <KenneyDistricts quality={quality}/>
-      <AtmosphericParticles/>
+      <AtmosphericParticles quality={quality}/>
       <SpeedWake game={game} quality={quality}/>
       <BoostFX game={game} quality={quality}/>
       <RailImpactFX game={game} quality={quality}/>

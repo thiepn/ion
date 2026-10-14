@@ -69,6 +69,8 @@ export function App() {
     try{localStorage.setItem('ion-v4-graphics',next);}catch{/* optional preference */}
   },[]);
   const [rendererError,setRendererError]=useState<string|null>(null);
+  const [gamepadNotice,setGamepadNotice]=useState<string|null>(null);
+  const disconnectedController=useRef(false);
   const [rendererEpoch,setRendererEpoch]=useState(0);
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
@@ -92,11 +94,13 @@ export function App() {
   const start=useCallback(()=>{
     input.clear();
     game.start();
+    setGamepadNotice(null);
     setGarage(false);setHelp(false);refresh();
   },[game,input,refresh]);
   const mainMenu=useCallback(()=>{
     input.clear();
     game.menu();
+    setGamepadNotice(null);
     setGarage(false);setHelp(false);refresh();
   },[game,input,refresh]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
@@ -106,6 +110,18 @@ export function App() {
 
   useEffect(()=>{
     input.attach();
+    input.onGamepadDisconnect=()=>{
+      disconnectedController.current=true;
+      if(game.phase==='racing'||game.phase==='countdown')game.pause();
+      setGamepadNotice('Controller disconnected. Race paused; reconnect or use the keyboard.');
+      refresh();
+    };
+    input.onGamepadConnect=()=>{
+      if(disconnectedController.current) {
+        disconnectedController.current=false;
+        setGamepadNotice('Controller reconnected. Release all buttons, then resume your race.');
+      }
+    };
     input.onKeyAction=(action)=>{
       if (action==='pause') togglePause();
       if (action==='reset' && newest.current.phase!=='menu') start();
@@ -124,6 +140,8 @@ export function App() {
     return ()=>{
       document.removeEventListener('visibilitychange',onHidden);
       input.onKeyAction=undefined;
+      input.onGamepadConnect=undefined;
+      input.onGamepadDisconnect=undefined;
       input.detach();
     };
   },[game,input,refresh,start,togglePause,toggleCamera,recover]);
@@ -162,6 +180,13 @@ export function App() {
         </RuntimeBoundary>
       </div>
       <div className="vignette" aria-hidden="true"/>
+      {gamepadNotice && (
+        <div className="gamepad-notice" role="status" aria-live="polite">
+          <span>{gamepadNotice}</span>
+          <button type="button" onClick={()=>setGamepadNotice(null)}
+            aria-label="Dismiss controller status"><span aria-hidden="true">×</span></button>
+        </div>
+      )}
       {rendererError!==null && (
         <section className="renderer-recovery" role="alert">
           <div className="label-line">ION GRAPHICS / RECOVERY REQUIRED</div>
@@ -185,7 +210,7 @@ export function App() {
           <span className="identity-detail">ANTI-GRAVITY<br/>RACING SYSTEM</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V8 · DEVELOPMENT BUILD</span>
+          <span className="build-label">V9 · DEVELOPMENT BUILD</span>
           {isRace && <>
             <button className="small-button camera-button" type="button"
               onClick={toggleCamera} aria-label="Switch race camera">CAMERA <kbd>V</kbd></button>

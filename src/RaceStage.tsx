@@ -24,7 +24,9 @@ function resolutionBudget(quality:Props['quality']):number {
   const pixels=Math.max(1,window.innerWidth*window.innerHeight);
   const pixelBudget=quality==='QUALITY'?2_200_000:1_100_000;
   const preference=Math.min(window.devicePixelRatio||1,quality==='QUALITY'?1.55:1.1);
-  return Math.min(preference,Math.max(.65,Math.sqrt(pixelBudget/pixels)));
+  // An absolute .65 DPR floor exceeded the declared pixel budget on 4K/8K
+  // screens. Honor the true pixel budget even on very dense displays.
+  return Math.min(preference,Math.sqrt(pixelBudget/pixels));
 }
 
 /** Lazy loaded Three.js application code, separate from the lightweight UI. */
