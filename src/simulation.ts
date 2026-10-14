@@ -23,6 +23,11 @@ export type RaceSnapshot = {
   worldX: number;
   worldZ: number;
   heading: number;
+  sectorTimes: number[];
+  lastSectorTime: number | null;
+  lastSector: number | null;
+  recoveryReady: boolean;
+  recoveryCount: number;
 };
 
 const MAX_LAPS = 3;
@@ -47,8 +52,8 @@ function wrapAngle(angle: number) {
 export class InputController {
   private held = new Set<string>();
   private attached = false;
-  private gamepadActionButtons=[false,false,false];
-  onKeyAction?: (action: 'pause' | 'reset' | 'camera') => void;
+  private gamepadActionButtons=[false,false,false,false];
+  onKeyAction?: (action: 'pause' | 'reset' | 'camera' | 'recover') => void;
 
   private onKeyDown = (e: KeyboardEvent) => {
     const code = e.code;
@@ -60,6 +65,7 @@ export class InputController {
       if (code === 'Escape' || code === 'KeyP') this.onKeyAction?.('pause');
       if (code === 'KeyR') this.onKeyAction?.('reset');
       if (code === 'KeyV') this.onKeyAction?.('camera');
+      if (code === 'KeyT') this.onKeyAction?.('recover');
     }
     this.held.add(code);
   };
@@ -88,8 +94,8 @@ export class InputController {
       pad=typeof navigator.getGamepads==='function'?
         Array.from(navigator.getGamepads()).find((p):p is Gamepad=>Boolean(p)) ?? null:null;
     }catch { pad=null; }
-    const indices=[9,3,2]; // Start/Pause, Y/Camera, X/Reset
-    const actions=['pause','camera','reset'] as const;
+    const indices=[9,3,2,4]; // Start/Pause, Y/Camera, X/Reset, LB/Recover
+    const actions=['pause','camera','reset','recover'] as const;
     indices.forEach((index,i)=>{
       const pressed=Boolean(pad?.buttons[index]?.pressed);
       if(pressed&&!this.gamepadActionButtons[i])this.onKeyAction?.(actions[i]);
@@ -152,6 +158,19 @@ export class RaceEngine {
   /** Smoothed driver's last steering command, shared only within this engine. */
   get steeringAmount(){return this.steering;}
   private lastBoostPadDistance = -1;
+  sectorTimes:number[]=[];
+  lastSectorTime:number|null=null;
+  lastSector:number|null=null;
+  private sectorStartTime=0;
+  private highestScoredCheckpoint=0;
+  recoveryCount=0;
+  private recoveryCooldown=0;
+  private lastImpactSide=1;
+  get impactSide(){return this.lastImpactSide;}
+  get recoveryReady(){
+    return (this.phase==='racing'||this.phase==='paused')&&
+      this.recoveryCooldown<=0&&this.shield>0;
+  }
 
   reset() {
     this.position.copy(trackAt(0).position);
@@ -177,6 +196,51 @@ export class RaceEngine {
     this.lastBoostPadDistance = -1;
     this.impact = 0;
     this.steering=0;
+    this.sectorTimes=[];
+    this.lastSectorTime=null;
+    this.lastSector=null;
+    this.sectorStartTime=0;
+    this.highestScoredCheckpoint=0;
+    this.recoveryCount=0;
+    this.recoveryCooldown=0;
+    this.lastImpactSide=1;
+  }
+  /**
+   * Recover from being pinned to a rail, without resetting a race or
+   * bypassing any unearned checkpoints. Only the last crossed 25% marker
+   * is a valid respawn. Time/shield/boost penalties prevent record exploits.
+   */
+  recover(): boolean {
+    if(!this.recoveryReady)return false;
+    const gate=Math.min(3,Math.floor(Math.max(0,this.progress-1e-6)*4));
+    const t=gate*.25;
+    const spot=trackAt(t);
+    this.position.copy(spot.position);
+    this.position.y+=2.5;
+    this.heading=Math.atan2(spot.tangent.x,spot.tangent.z);
+    this.previousT=t;
+    this.progress=t;
+    this.checkpoints=gate;
+    this.highestScoredCheckpoint=gate;
+    this.sectorTimes.length=gate;
+    this.lastSectorTime=gate>0?this.sectorTimes[gate-1]??null:null;
+    this.lastSector=gate>0?gate:null;
+    this.sectorStartTime=this.lapTime+5;
+    this.speed=0;
+    this.roll=0;
+    this.pitch=0;
+    this.steering=0;
+    this.impact=0;
+    this.elapsed+=5;
+    this.lapTime+=5;
+    this.boost=Math.max(0,this.boost-25);
+    this.shield=Math.max(1,this.shield-8);
+    this.wallCooldown=1;
+    this.recoveryCooldown=8;
+    this.usedBoostPad=-1;
+    this.lastBoostPadDistance=(this.lap-1)+t;
+    this.recoveryCount++;
+    return true;
   }
   start() { this.reset(); this.phase = 'countdown'; }
   restart() { this.start(); }
@@ -198,6 +262,7 @@ export class RaceEngine {
     this.elapsed += dt;
     this.lapTime += dt;
     this.wallCooldown = Math.max(0, this.wallCooldown - dt);
+    this.recoveryCooldown = Math.max(0, this.recoveryCooldown - dt);
     this.impact = Math.max(0, this.impact - dt * 2.4);
 
     const driving = controls.throttle > 0;
@@ -252,6 +317,7 @@ export class RaceEngine {
         this.shield = Math.max(0, this.shield - Math.max(8, Math.min(19, 6 + impactSpeed * .115)));
         this.wallCooldown = 0.64;
         this.impact = 1;
+        this.lastImpactSide=side;
       }
       // Redirect velocity along the track so a steering-locked player can
       // escape a guardrail rather than losing speed on every 60 Hz tick.
@@ -275,16 +341,35 @@ export class RaceEngine {
     if (Math.abs(travel) < 0.035) {
       this.progress = Math.max(0, this.progress + travel);
     }
-    this.checkpoints = [0.25, 0.5, 0.75].filter(gate => this.progress >= gate).length;
+    this.checkpoints=[0.25,0.5,0.75].filter(gate=>this.progress>=gate).length;
+    // Record actual cumulative sector splits at each first forward crossing.
+    // Reverse travel cannot create a new sector or duplicate a split.
+    if(this.checkpoints>this.highestScoredCheckpoint && travel>0){
+      for(let gate=this.highestScoredCheckpoint;gate<this.checkpoints;gate++){
+        const split=this.lapTime-this.sectorStartTime;
+        this.sectorTimes[gate]=split;
+        this.lastSectorTime=split;
+        this.lastSector=gate+1;
+        this.sectorStartTime=this.lapTime;
+      }
+      this.highestScoredCheckpoint=this.checkpoints;
+    }
     if (this.progress >= 1 && this.checkpoints === 3) {
+      const finalSector=this.lapTime-this.sectorStartTime;
+      this.sectorTimes[3]=finalSector;
+      this.lastSectorTime=finalSector;
+      this.lastSector=4;
       this.lapTimes.push(this.lapTime);
       if (this.bestLap === null || this.lapTime < this.bestLap) {
         this.bestLap = this.lapTime;
         saveBestLap(this.lapTime);
       }
       this.lapTime = 0;
+      this.sectorStartTime=0;
       this.progress -= 1;
       this.checkpoints = 0;
+      this.highestScoredCheckpoint=0;
+      this.sectorTimes=[];
       this.lap += 1;
       if (this.lap > MAX_LAPS) {
         this.phase = 'finished';
@@ -333,6 +418,11 @@ export class RaceEngine {
       worldX: this.position.x,
       worldZ: this.position.z,
       heading: this.heading,
+      sectorTimes:[...this.sectorTimes],
+      lastSectorTime:this.lastSectorTime,
+      lastSector:this.lastSector,
+      recoveryReady:this.recoveryReady,
+      recoveryCount:this.recoveryCount,
     };
   }
 }

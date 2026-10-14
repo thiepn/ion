@@ -11,6 +11,8 @@ import { CircuitDressing } from './visuals/CircuitDressing';
 import { TrackInfrastructure } from './visuals/TrackInfrastructure';
 import { SpeedWake } from './visuals/SpeedWake';
 import { BoostFX } from './visuals/BoostFX';
+import { RailImpactFX } from './visuals/RailImpactFX';
+import { CircuitSurfaceDetails } from './visuals/CircuitSurfaceDetails';
 import { RaceLineGuidance } from './visuals/RaceLineGuidance';
 import { IndustrialHorizon } from './visuals/IndustrialHorizon';
 import { IndustrialSky } from './visuals/IndustrialSky';
@@ -422,6 +424,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
         shadow-normalBias={.04}/>
       <ReflectionEnvironment enabled={quality==='QUALITY'}/>
       <Road/>
+      <CircuitSurfaceDetails quality={quality}/>
       <CircuitDetails/>
       <IndustrialHorizon quality={quality}/>
       <CircuitDressing/>
@@ -431,6 +434,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <AtmosphericParticles/>
       <SpeedWake game={game} quality={quality}/>
       <BoostFX game={game} quality={quality}/>
+      <RailImpactFX game={game} quality={quality}/>
       {craftKind==='RACER' ? (
         <Suspense fallback={<Craft game={game} shipRef={ship} hullRef={hull} paint={paint}/> }>
           <KenneyRacer game={game} shipRef={ship} hullRef={hull} paint={paint}/>
