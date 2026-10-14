@@ -80,20 +80,20 @@ function Engine({x,game}:{x:number;game:RaceEngine}) {
     }
   });
   return (
-    <group position={[x,-.12,2.08]}>
+    <group position={[x,-.12,-2.08]}>
       <mesh rotation={[Math.PI/2,0,0]} castShadow>
         <cylinderGeometry args={[.49,.66,1.85,18,1,false]}/>
         <meshStandardMaterial color="#152536" metalness={.85} roughness={.33}/>
       </mesh>
-      <mesh position={[0,0,.97]}>
+      <mesh position={[0,0,-.97]}>
         <torusGeometry args={[.46,.09,10,28]}/>
         <meshStandardMaterial color="#8193a1" metalness={.8} roughness={.3}/>
       </mesh>
-      <mesh ref={core} position={[0,0,1.01]}>
+      <mesh ref={core} position={[0,0,-1.01]} rotation={[0,Math.PI,0]}>
         <circleGeometry args={[.38,28]}/>
         <meshBasicMaterial color={ELECTRIC} toneMapped={false}/>
       </mesh>
-      <mesh ref={exhaust} position={[0,0,1.15]} rotation={[Math.PI/2,0,0]}>
+      <mesh ref={exhaust} position={[0,0,-1.76]} rotation={[Math.PI/2,0,0]}>
         <cylinderGeometry args={[.32,.08,2.2,14]}/>
         <meshBasicMaterial color={ELECTRIC} transparent opacity={.27}
           blending={AdditiveBlending} depthWrite={false} toneMapped={false}/>
@@ -145,17 +145,17 @@ export function Craft({game,shipRef,hullRef,paint}:{
             <boxGeometry args={[1.37,.17,1.72]}/>
             <meshStandardMaterial color="#172c3d" metalness={.8} roughness={.28}/>
           </mesh>
-          <mesh position={[0,.63,-1.12]} rotation={[Math.PI/2,0,0]} castShadow>
+          <mesh position={[0,.63,.55]} rotation={[Math.PI/2,0,0]} castShadow>
             <sphereGeometry args={[.76,24,14]}/>
             <meshPhysicalMaterial color="#17384d" metalness={.3} roughness={.12}
               clearcoat={1} clearcoatRoughness={.1}/>
           </mesh>
-          <mesh ref={cockpit} position={[0,.68,-1.02]} scale={[.72,.39,1.21]}>
+          <mesh ref={cockpit} position={[0,.68,.55]} scale={[.72,.39,1.21]}>
             <sphereGeometry args={[1,26,18]}/>
             <meshPhysicalMaterial color="#1a4658" metalness={.42} roughness={.11}
               clearcoat={1} clearcoatRoughness={.04} transparent opacity={.93}/>
           </mesh>
-          <mesh position={[0,.5,-2.54]}>
+          <mesh position={[0,.5,2.46]}>
             <boxGeometry args={[.14,.08,1.2]}/>
             <meshBasicMaterial toneMapped={false} color={WARM}/>
           </mesh>
@@ -197,19 +197,19 @@ export function Craft({game,shipRef,hullRef,paint}:{
           <Engine x={-1.06} game={game}/>
           <Engine x={1.06} game={game}/>
           {[-1,1].map(side=>(
-            <group key={side} position={[side*3.32,-.18,.7]}>
+            <group key={side} position={[side*3.32,-.18,-.7]}>
               <mesh rotation={[Math.PI/2,0,0]}>
                 <cylinderGeometry args={[.29,.35,1.1,14]}/>
                 <meshStandardMaterial color="#223746" metalness={.75} roughness={.35}/>
               </mesh>
-              <mesh position={[0,0,.62]}>
+              <mesh position={[0,0,-.62]} rotation={[0,Math.PI,0]}>
                 <circleGeometry args={[.22,16]}/>
                 <meshBasicMaterial color={WARM} toneMapped={false}/>
               </mesh>
               <pointLight color="#67dff8" intensity={1.2} distance={7} decay={2}/>
             </group>
           ))}
-          <pointLight position={[0,0,2.8]} color="#59ddf4" intensity={game.isBoosting?12:3} distance={16} decay={2}/>
+          <pointLight position={[0,0,-3.0]} color="#59ddf4" intensity={game.isBoosting?12:3} distance={16} decay={2}/>
         </group>
       </group>
     </group>

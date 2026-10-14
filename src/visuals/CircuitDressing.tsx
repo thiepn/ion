@@ -191,7 +191,7 @@ function CoolingTowers(){
             <meshStandardMaterial color="#233d4d" metalness={.47} roughness={.57}/>
           </mesh>
           {[7,17,27,38].map(y=>(
-            <mesh key={y} position={[0,y,0]}>
+            <mesh key={y} position={[0,y,0]} rotation={[Math.PI/2,0,0]}>
               <torusGeometry args={[9,0.3,5,8]}/>
               <meshBasicMaterial color={i%2?emissiveAmber:emissiveCyan} toneMapped={false}/>
             </mesh>
