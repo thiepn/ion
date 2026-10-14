@@ -349,3 +349,19 @@ h1,h2,p{margin-top:0}
 .boot-shell p{font:600 11px 'DM Mono',monospace;letter-spacing:.19em;color:#99b8c3}
 .boot-rule{width:clamp(170px,32vw,420px);height:1px;background:#50717e;margin:28px 0}
 .boot-shell strong{font:700 11px 'DM Mono',monospace;letter-spacing:.13em;color:#f1ab81}
+
+/* V11: actual wrong-way / unearned-gate feedback, not simulated scores. */
+.track-alert{
+  position:absolute;z-index:10;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(360px,calc(100% - 28px));padding:15px 22px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:rgba(9,20,33,.9);border-top:2px solid #f3aa77;
+  border-bottom:1px solid rgba(242,173,128,.45);text-align:center;pointer-events:none;
+}
+.track-alert strong{color:#ffd0a4;font:800 clamp(22px,4vw,36px)/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.045em}
+.track-alert span{color:#c5d6de;font:600 11px/1.4 'DM Sans',Arial,sans-serif}
+@media(orientation:landscape) and (max-height:480px){
+  .track-alert{top:37%;left:51%;padding:7px 12px;width:min(240px,32vw)}
+  .track-alert strong{font-size:19px}
+  .track-alert span{font-size:9px}
+}
