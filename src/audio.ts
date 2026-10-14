@@ -16,6 +16,8 @@ export class RaceAudio {
   private previous: RaceSnapshot | null = null;
   private on = false;
   private closed = false;
+  // Cancellation sequence for pending browser AudioContext.resume() promises.
+  private activation = 0;
 
   get enabled() { return this.on; }
 
@@ -24,6 +26,7 @@ export class RaceAudio {
 
   async enable(): Promise<boolean> {
     if (this.closed) return false;
+    const request = ++this.activation;
     try {
       if (!this.context) {
         if (typeof AudioContext === 'undefined') return false;
@@ -56,18 +59,24 @@ export class RaceAudio {
       }
       // Called directly from the user's audio-toggle click so browsers can
       // grant audio activation without an autoplay workaround.
-      await this.context.resume();
-      if (this.closed || this.context.state !== 'running') return false;
+      const ctx=this.context;
+      if (!ctx) return false;
+      await ctx.resume();
+      // A prior audio-on request must not reactivate sound after the user
+      // muted it, disposed this app, or made a newer activation attempt.
+      if (this.closed || request !== this.activation ||
+          this.context !== ctx || ctx.state !== 'running') return false;
       this.on = true;
       this.applyMotor(this.previous);
       return true;
     } catch {
-      this.on = false;
+      if (request === this.activation) this.on = false;
       return false;
     }
   }
 
   disable() {
+    ++this.activation;
     this.on = false;
     this.applyMotor(null);
     // Suspend the silent audio graph instead of running it in the background.
@@ -150,6 +159,7 @@ export class RaceAudio {
   dispose() {
     if (this.closed) return;
     this.closed = true;
+    ++this.activation;
     this.on = false;
     this.motor?.stop();
     this.harmonic?.stop();
