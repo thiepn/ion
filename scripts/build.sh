@@ -6,5 +6,9 @@ npm install --no-audit --no-fund
 # Focused real RaceEngine movement/steering/recovery smoke checks use the
 # existing installed esbuild dependency, not a second game or CI service.
 node scripts/i05-physics-smoke.mjs
+# I06 qualifies the exact Three.js spline before shipping a circuit preview.
+node scripts/i06-track-qualification.mjs
+# Drive three physically earned laps at low speed using canonical RaceEngine.
+node scripts/i06-three-lap-drive.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build

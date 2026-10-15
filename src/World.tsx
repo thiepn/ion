@@ -5,7 +5,7 @@ import {
   Object3D, Vector3, BufferGeometry, Float32BufferAttribute,
 } from 'three';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
-import { ROAD_HALF_WIDTH, ribbon, trackAt } from './track';
+import { BOOST_PAD_T, ROAD_HALF_WIDTH, ribbon, trackAt } from './track';
 import { Craft } from './visuals/Craft';
 import { CircuitDressing } from './visuals/CircuitDressing';
 import { TrackInfrastructure } from './visuals/TrackInfrastructure';
@@ -350,8 +350,11 @@ function CircuitDetails() {
         <meshBasicMaterial color={CYAN} toneMapped={false} />
       </instancedMesh>
       {startGate(0, ORANGE)}
-      {[0.18, 0.34, 0.58, 0.74, 0.93].map(t => startGate(t, '#43788a'))}
-      {[0.16, 0.48, 0.80].map(t => {
+      {/* Secondary gantries now mark the *actual* physical checkpoint gates.
+          The old decorative gantries at arbitrary fractions looked like
+          earned sector gates even when they were not. */}
+      {[0.25, 0.50, 0.75].map(t => startGate(t, '#43788a'))}
+      {BOOST_PAD_T.map(t => {
         const { position, tangent } = trackAt(t);
         return (
           <group key={'boost'+t} position={[position.x,position.y+0.2,position.z]}

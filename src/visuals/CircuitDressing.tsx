@@ -3,7 +3,7 @@ import {
   CanvasTexture, DoubleSide, InstancedMesh, Object3D,
   SRGBColorSpace, Vector3,
 } from 'three';
-import { ROAD_HALF_WIDTH, trackAt } from '../track';
+import { CIRCUIT_SECTIONS, ROAD_HALF_WIDTH, trackAt } from '../track';
 import { emissiveAmber, emissiveCyan } from './Rendering';
 
 function panelTexture(title:string,subtitle:string):CanvasTexture|null {
@@ -13,7 +13,10 @@ function panelTexture(title:string,subtitle:string):CanvasTexture|null {
   if(!c) return null;
   c.fillStyle='#111f2c';c.fillRect(0,0,1024,256);
   c.fillStyle='#83e9ec';c.fillRect(28,22,9,212);
-  c.fillStyle='#e6f1f3';c.font='900 126px Arial,sans-serif';c.fillText(title,68,152);
+  c.fillStyle='#e6f1f3';c.font='900 126px Arial,sans-serif';
+  // Make the longest actual section name readable rather than letting the
+  // canvas clip the end of NORTH CREST or HOMECOMING.
+  c.fillText(title,68,152,780);
   c.fillStyle='#f1ab7d';c.font='700 27px Arial,sans-serif';c.fillText(subtitle,72,205);
   c.fillStyle='#4c7080';c.fillRect(60,24,915,2);
   c.fillRect(60,225,915,2);
@@ -27,13 +30,11 @@ function panelTexture(title:string,subtitle:string):CanvasTexture|null {
   return texture;
 }
 
-function SignalBridge({t,index}: {t:number;index:number}) {
+function SignalBridge({section}: {section:(typeof CIRCUIT_SECTIONS)[number]}) {
+  const {t,name,hint}=section;
   const {position,tangent}=trackAt(t);
   const yaw=Math.atan2(tangent.x,tangent.z);
-  const texture=useMemo(()=>panelTexture(
-    index%3===0?'ION / 01':index%3===1?'NIGHTSHIFT':'SECTOR '+(index+1),
-    index%3===0?'ANTI-GRAVITY CIRCUIT':index%3===1?'DRIVE BEYOND THE LIMIT':'HIGH SPEED ZONE'
-  ),[index]);
+  const texture=useMemo(()=>panelTexture(name,hint),[name,hint]);
   useEffect(()=>()=>texture?.dispose(),[texture]);
   return (
     <group position={[position.x,position.y,position.z]} rotation={[0,yaw,0]}>
@@ -219,8 +220,11 @@ export function CircuitDressing({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
       <BarrierSystem/>
       <DirectionSignals quality={quality}/>
       <CoolingTowers quality={quality}/>
-      {(quality==='QUALITY'?[.12,.42,.68,.9]:[.12,.68])
-        .map((t,i)=><SignalBridge key={t} t={t} index={i}/>)}
+      {/* All five major sections are signposted even in PERFORMANCE mode;
+          they are track wayfinding, not optional decorative scenery. */}
+      {CIRCUIT_SECTIONS.map(section=>(
+        <SignalBridge key={section.name} section={section}/>
+      ))}
     </group>
   );
 }

@@ -4,7 +4,7 @@ import {
   Color, DoubleSide, DynamicDrawUsage, InstancedMesh,
   Matrix4, Object3D, Vector3,
 } from 'three';
-import { trackAt, ROAD_HALF_WIDTH } from '../track';
+import { trackAt, ROAD_HALF_WIDTH, TRACK_LENGTH } from '../track';
 import type { RaceEngine } from '../simulation';
 
 type Transform = { pos: Vector3; yaw: number; scale: [number, number, number] };
@@ -76,12 +76,21 @@ export function RaceLineGuidance({game,quality}:{
           p.position.y+1.25,p.position.z+p.right.z*outside*(ROAD_HALF_WIDTH+1.3)),
         yaw,scale:[.55,1.65,.2],
       });
-      // Additional road-side vertical marker offset ahead of the apex.
-      if(i%4===0)brakeBoards.push({
-        pos:new Vector3(p.position.x-p.tangent.x*23+p.right.x*outside*(ROAD_HALF_WIDTH+2.4),
-          p.position.y+3.3,p.position.z-p.tangent.z*23+p.right.z*outside*(ROAD_HALF_WIDTH+2.4)),
-        yaw,scale:[.28,4.8,2.3],
-      });
+      // The old 23m warning was physically too late at 86m/s (0.27s).
+      // Position the board about 85m *along the true spline* before the
+      // apex, never by subtracting a tangent vector which can strand a
+      // road-side sign on the wrong side of a sweeping turn.
+      if(i%4===0){
+        const approach=trackAt((t-85/TRACK_LENGTH+1)%1);
+        const approachYaw=Math.atan2(approach.tangent.x,approach.tangent.z);
+        brakeBoards.push({
+          pos:new Vector3(
+            approach.position.x+approach.right.x*outside*(ROAD_HALF_WIDTH+2.4),
+            approach.position.y+3.3,
+            approach.position.z+approach.right.z*outside*(ROAD_HALF_WIDTH+2.4)),
+          yaw:approachYaw,scale:[.28,4.8,2.3],
+        });
+      }
     }
     return {
       shoulders:buildMatrices(shoulders),
