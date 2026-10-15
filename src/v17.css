@@ -1,5 +1,7 @@
 /* I11: touch layouts, responsive guidance and race-state details.
    Desktop shell, typography and shared controls are canonical in styles.css. */
+.touch-bar { display:none; }
+
 /* Touch controls use actual thumb zones rather than fixed corner micro-buttons.
    Two fingers may independently steer and accelerate/boost. */
 @media (pointer:coarse), (max-width:680px) {
