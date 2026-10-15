@@ -40,7 +40,7 @@ export const BOOST_PAD_T = [0.16, 0.43, 0.80] as const;
 /** Authored visible course wayfinding, tied to exact curve locations. */
 export const CIRCUIT_SECTIONS = [
   {t:0.09, name:'LAUNCH', hint:'OPEN THE THROTTLE'},
-  {t:0.25, name:'SWITCHBACK', hint:'FLOW THROUGH THE S'},
+  {t:0.285, name:'SWITCHBACK', hint:'FLOW THROUGH THE S'},
   {t:0.45, name:'NORTH CREST', hint:'READ THE EXIT'},
   {t:0.65, name:'DESCENT', hint:'BRAKE FOR THE BEND'},
   {t:0.86, name:'HOMECOMING', hint:'SET UP THE STRAIGHT'},
