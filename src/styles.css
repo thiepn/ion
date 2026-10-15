@@ -364,12 +364,6 @@ h1,h2,p{margin-top:0}
 }
 
 /* Consolidated ION UI foundation — canonical top-level screen rules. */
-:root {
-  font-family: var(--ion-body);
-  color: var(--ion-ink);
-  background: var(--ion-bg);
-  font-synthesis: none;
-}
 .app-shell { background: var(--ion-bg); }
 .vignette {
   background:
@@ -551,7 +545,7 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
 .results>div {min-width:0}
 .results>div>strong,.results>div>span {flex-shrink:0}
 .lap-result-metrics {max-width:72%}
-.lap-result-metrics small {font-size:10px;line-height:1.55}
+.lap-result-metrics small {font-size:11px;line-height:1.55}
 .site-footer a:focus-visible {color:#ffffff}
 @media (max-width:800px) {
   .menu-panel,.garage-panel,.dialog-panel {max-height:calc(100dvh - 105px)}
@@ -565,7 +559,7 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   .results>div {gap:9px}
   .results span {font-size:9px}
   .lap-result-metrics {max-width:75%}
-  .lap-result-metrics small {font-size:9px}
+  .lap-result-metrics small {font-size:10px}
 }
 @media (orientation:landscape) and (max-height:540px) {
   .menu-panel,.garage-panel,.dialog-panel,.finish-panel {
@@ -574,7 +568,7 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   }
   .dialog-panel h2 {font-size:clamp(43px,9vh,61px)}
   .menu-panel h1 {font-size:clamp(46px,11vh,72px)}
-  .race-time strong {font-size:clamp(19px,4vh,31px)}
+  .race-time strong {font-size:clamp(21px,5vh,31px)}
 }
 @media (prefers-reduced-motion:reduce) {
   .cta,.secondary-action,.small-button,.option-button {transition:none}
