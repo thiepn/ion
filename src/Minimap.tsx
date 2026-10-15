@@ -23,6 +23,17 @@ const circuit = TRACK_SAMPLES
   .join(' ') + ' Z';
 const gateMarkers = [0, 0.25, 0.5, 0.75].map(t => TRACK_SAMPLES[Math.round(t * (TRACK_SAMPLES.length - 1))]);
 
+/**
+ * Only the original RaceSnapshot.nextGate may decide the required marker.
+ * The finish line is index 0, while S1/S2/S3 are 1/2/3 respectively.
+ * At grid nextGate=1: finish is NOT an earned sector.
+ */
+export function gateMarkerStatus(index:number,nextGate:number):'next'|'earned'|'pending' {
+  if(index===0)return nextGate===4?'next':'pending';
+  if(index===nextGate)return 'next';
+  return index<nextGate?'earned':'pending';
+}
+
 /** Vector track map derived from the real collision/course spline, never a fabricated map. */
 export function Minimap({ race }: { race: RaceSnapshot }) {
   const marker = useMemo(() => ({
@@ -31,21 +42,35 @@ export function Minimap({ race }: { race: RaceSnapshot }) {
     angle: race.heading * 180 / Math.PI,
   }), [race.worldX, race.worldZ, race.heading]);
 
+  const progressPercent=Math.max(0,Math.min(100,Math.floor(race.progress*100)));
+  const gateTarget=race.nextGateLabel;
   return (
-    <div className="minimap" aria-label={`Track map: approximately ${Math.floor((race.progress % 1) * 100)} percent of lap progression`}>
-      <div className="minimap-heading"><span>SECTOR MAP</span><span>01</span></div>
-      <svg viewBox={`0 0 ${VIEW} ${VIEW}`} role="img" aria-label="Circular track map with live vehicle position and sector checkpoints">
+    <div className="minimap" aria-label={`Nightshift track map. Lap ${race.lap} of ${race.laps}. Next required: ${gateTarget}. Position approximately ${progressPercent} percent along the course.`}>
+      <div className="minimap-heading"><span>TRACK / NEXT GATE</span>
+        <strong>{race.nextGate===4?'FINISH':`S${race.nextGate}`}</strong></div>
+      <svg viewBox={`0 0 ${VIEW} ${VIEW}`} role="img" aria-label="Nightshift circuit outline, vehicle position and official ordered quarter gates">
         <path d={circuit} fill="none" stroke="#0e2636" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
         <path d={circuit} fill="none" stroke="#507d90" strokeWidth="1.5" strokeLinejoin="round"/>
-        {gateMarkers.map((p, i) =>
-          <circle key={i} cx={mapX(p.x)} cy={mapY(p.z)} r={i === 0 ? 4.4 : 3.2}
-            fill={i === 0 ? '#f4ab77' : i <= race.nextGate - 1 ? '#99f2e8' : '#577b8b'} stroke="#08131d" strokeWidth="1.5"/>
-        )}
+        {gateMarkers.map((p, i) => {
+          const status=gateMarkerStatus(i,race.nextGate);
+          return <circle key={i} data-gate={i===0?'finish':`S${i}`}
+            data-status={status}
+            cx={mapX(p.x)} cy={mapY(p.z)}
+            r={status==='next'?5.3:i===0?4.4:3.2}
+            fill={status==='next'?'#ffba8d':status==='earned'?'#99f2e8':'#577b8b'}
+            stroke={status==='next'?'#f8fff7':'#08131d'}
+            strokeWidth={status==='next'?2:1.5}/>;
+        })}
         <g transform={`translate(${marker.x} ${marker.y}) rotate(${marker.angle})`}>
           <path d="M0 -10 L6 7 L0 4 L-6 7Z" fill="#e9fff8" stroke="#243b43" strokeWidth="1.5"/>
         </g>
       </svg>
-      <div className="minimap-foot"><span>PROGRESS</span><strong>{Math.floor(Math.min(1,race.progress) * 100)}%</strong></div>
+      <div className="minimap-foot"><span>ON TRACK</span><strong>{progressPercent}%</strong></div>
+      <div className="minimap-progress" role="progressbar"
+        aria-label="Current physical position along this lap"
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+        <span style={{width:`${progressPercent}%`}}/>
+      </div>
     </div>
   );
 }
