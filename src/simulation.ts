@@ -565,24 +565,35 @@ export class RaceEngine {
       const side = Math.sign(road.lateral);
       const newImpact=this.wallContactSide!==side;
       this.wallContactSide=side;
-      this.position.x = road.centerX + road.rightX * boundary * side;
-      this.position.z = road.centerZ + road.rightZ * boundary * side;
+      // Move the craft's hull a small distance *inside* the solid rail.
+      // Clamping exactly to the boundary otherwise lets steering push into
+      // the same wall again on each fixed step with no visual separation.
+      const inside=boundary-.3;
+      this.position.x=road.centerX+road.rightX*inside*side;
+      this.position.z=road.centerZ+road.rightZ*inside*side;
       // A continuous scrape against the same rail is one collision, not
       // new full-speed shield damage every cooldown cycle.
       if (newImpact && this.wallCooldown <= 0 && this.speed > 12) {
-        // Resolve a real impact once, not exponential drag every frame while
-        // the craft is touching a rail. Damage scales with actual impact speed.
-        const impactSpeed = this.speed;
-        this.speed *= 0.69;
-        this.shield = Math.max(0, this.shield - Math.max(8, Math.min(19, 6 + impactSpeed * .115)));
+        // Grazing a guardrail should not be as punishing as driving across
+        // it. Calculate impact incidence from real momentum, not just yaw.
+        // Retain the previous damage cooldown / shield and fail authority.
+        const impactSpeed=this.speed;
+        const incidence=Math.min(1,
+          Math.abs(Math.sin(wrapAngle(this.motionHeading-road.heading))));
+        this.speed*=.88-.26*incidence;
+        this.shield=Math.max(0,this.shield-
+          Math.max(6,Math.min(19,(4+impactSpeed*.115)*(.72+.54*incidence))));
         this.wallCooldown = 0.64;
         this.impact = 1;
         this.lastImpactSide=side;
       }
-      // Redirect velocity along the track so a steering-locked player can
-      // escape a guardrail rather than losing speed on every 60 Hz tick.
-      this.heading = wrapAngle(this.heading +
-        wrapAngle(road.heading - this.heading) * Math.min(1, dt * 13));
+      // Release both facing and *travel* heading toward the rail tangent.
+      // Reorienting yaw alone while the physical velocity still points into
+      // the wall leaves the vehicle visually stuck after a crash.
+      this.heading=wrapAngle(this.heading+
+        wrapAngle(road.heading-this.heading)*Math.min(1,dt*13));
+      this.motionHeading=wrapAngle(this.motionHeading+
+        wrapAngle(road.heading-this.motionHeading)*Math.min(1,dt*18));
       if (this.shield <= 0) {
         this.phase = 'finished';
         this.reason = 'destroyed';
@@ -616,6 +627,7 @@ export class RaceEngine {
         roadBefore.rightZ*Math.max(-boundary,Math.min(boundary,roadBefore.lateral));
       this.position.y=roadBefore.y+2.5;
       this.heading=roadBefore.heading;
+      this.motionHeading=this.heading;
       this.speed=Math.min(this.speed,14);
       this.roll=0;
       this.impact=Math.max(this.impact,.42);
