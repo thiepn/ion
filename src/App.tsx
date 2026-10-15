@@ -4,6 +4,7 @@ import { RuntimeBoundary } from './visuals/RuntimeBoundary';
 import { Minimap } from './Minimap';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
 import { RaceAudio } from './audio';
+import { upcomingApproach } from './track';
 
 type CameraMode = 'CHASE' | 'NEAR';
 type Quality = 'PERFORMANCE' | 'QUALITY';
@@ -223,6 +224,15 @@ export function App() {
   const disconnectedController=useRef(false);
   const [rendererEpoch,setRendererEpoch]=useState(0);
   const [help,setHelp]=useState(false);
+  const [showFirstRaceHint,setShowFirstRaceHint]=useState(()=>{
+    try{return localStorage.getItem('ion-i08-first-race-guide')!=='dismissed';}
+    catch{return true;}
+  });
+  const dismissFirstRaceHint=useCallback(()=>{
+    setShowFirstRaceHint(false);
+    try{localStorage.setItem('ion-i08-first-race-guide','dismissed');}
+    catch{/* optional local first-run preference */}
+  },[]);
   const [garage,setGarage]=useState(false);
   const [touchResetSerial,setTouchResetSerial]=useState(0);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
@@ -376,6 +386,15 @@ export function App() {
   const isRace = data.phase==='racing' || data.phase==='countdown';
   const isBlocking = data.phase==='menu'||data.phase==='paused'||data.phase==='finished';
   const won=data.reason==='complete';
+  // Read-only from the same spline as the physical race. Never issues input,
+  // credits gates or interrupts steering; suppressed while track is invalid.
+  const approach=(data.phase==='racing' && !data.trackWarning &&
+    (!showFirstRaceHint||data.elapsed>=17) && data.speedKmh>30)?
+    upcomingApproach(data.progress,data.speedKmh):null;
+  const showCoach=showFirstRaceHint && (data.phase==='countdown'||
+    (data.phase==='racing'&&data.elapsed<17));
+  const recoveryDestination=data.nextGate===1?'START GRID':
+    'EARNED SECTOR '+(data.nextGate-1);
 
   return (
     <div className="app-shell">
@@ -459,7 +478,25 @@ export function App() {
                 'Turn around and follow the circuit direction':
                 data.trackWarning==='projection-recovered'?
                   'Vehicle re-centered after an ambiguous course projection':
-                  'Return to the next required sector marker or use recovery'}</span>
+                  'Re-cross the required gate forwards, or recover to the last earned sector'}</span>
+            </div>
+          )}
+          {showCoach && (
+            <aside className="first-race-brief" aria-label="First race driving instructions">
+              <strong>FIRST RUN · THREE LAPS</strong>
+              <p>Hold W / ↑ or GO, steer with A/D or the left thumb.
+                Follow the highlighted sector gate; slow for amber corner boards.</p>
+              <button type="button" onClick={dismissFirstRaceHint}
+                aria-label="Dismiss first race instructions">GOT IT <span aria-hidden="true">×</span></button>
+            </aside>
+          )}
+          {!showCoach && approach && (
+            <div className={'approach-advice'+(approach.brakeNow?' brake-now':'')}
+              aria-label={approach.brakeNow?
+                'Brake for '+approach.direction.toLowerCase()+' turn':
+                approach.direction.toLowerCase()+' turn ahead'}>
+              <strong>{approach.brakeNow?'BRAKE · ':''}{approach.direction}</strong>
+              <span>{approach.distanceM} M · {approach.suggestedKmh} KM/H ADVISORY</span>
             </div>
           )}
           <div className="race-top">
@@ -575,7 +612,7 @@ export function App() {
           <p>Your run is frozen. Resume from the same position and lap.</p>
           <button type="button" className="cta" onClick={togglePause}>RESUME RACE <span>↗</span></button>
           <button type="button" className="secondary-action" disabled={!data.recoveryReady} onClick={recover}>
-            RECOVER TO LAST SECTOR <span>+5 S · −8 SHIELD</span>
+            RECOVER TO {recoveryDestination} <span>+5 S · −8 SHIELD · −25 BOOST</span>
           </button>
           <button type="button" className="secondary-action" onClick={start}>RESTART FROM GRID</button>
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
@@ -617,7 +654,7 @@ export function App() {
           <section className="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
             <div className="menu-rule">PILOT MANUAL / INPUT SYSTEM</div>
             <h2 id="help-title">HOW TO RACE</h2>
-            <p>Follow the elevated illuminated track and cross each sector in order. Complete three laps to record a finish. Stay off the guardrails—each impact damages your shield.</p>
+            <p>Follow the illuminated deck and the highlighted amber quarter-gate beacon, then the finish line after S3. Each of the three laps requires S1, S2 and S3 in order. Amber roadside braking boards warn of tighter bends; the on-screen curve speed is advice, not automatic braking. Guardrail impacts damage your shield.</p>
             <dl>
               <div><dt>ACCELERATE</dt><dd>W / ↑</dd></div>
               <div><dt>BRAKE</dt><dd>S / ↓</dd></div>
@@ -638,7 +675,7 @@ export function App() {
               </select>
               <small>Lower values respond earlier. Increase this if a drifting stick steers without input.</small>
             </div>
-            <p>Gamepad left stick, D-pad left/right, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
+            <p>Gamepad left stick, D-pad left/right, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery sends you to the last earned quarter gate (or the start grid before S1), costing 5 seconds, 8 shield and 25 boost. It cannot award a missed checkpoint.</p>
             <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
             <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
@@ -652,7 +689,8 @@ export function App() {
           <TouchZone key={'drive-'+touchResetSerial} input={input} actions={DRIVING_ACTIONS}
             className="touch-driving" label="Throttle, brake and boost" keyboardBase={-201}/>
           <button type="button" className="touch-recover" disabled={!data.recoveryReady}
-            onClick={recover} aria-label="Recover to most recent earned checkpoint with penalty">
+            onClick={recover} aria-label={'Recover to '+recoveryDestination+
+              ', adding 5 seconds and reducing shield and boost'}>
             RECOVER · +5 S
           </button>
         </div>
