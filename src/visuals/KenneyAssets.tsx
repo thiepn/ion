@@ -3,6 +3,7 @@ import { useFrame, useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Box3, Group, Mesh, PointLight, Vector3 } from 'three';
 import { repaintLicensedMaterial } from './craftPaint';
+import { sectionVisualAt } from './sectionPalette';
 import { trackAt } from '../track';
 import { AssetBoundary } from './AssetBoundary';
 
@@ -96,7 +97,8 @@ const DISTRICT:Placement[]=[
   {asset:'monorail-trackstraight',t:.952,side:-1,distance:83,width:17},
 ];
 
-function SceneryObject({item}: {item:Placement}) {
+function SceneryObject({item,hero}: {item:Placement;hero:boolean}) {
+  const visual=sectionVisualAt(item.t);
   const {position,right,tangent}=trackAt(item.t);
   const x=position.x+right.x*item.side*item.distance;
   const z=position.z+right.z*item.side*item.distance;
@@ -111,13 +113,27 @@ function SceneryObject({item}: {item:Placement}) {
       <group position={[x,deckY-.95,z]} rotation={[0,angle,0]}>
         <mesh receiveShadow castShadow>
           <boxGeometry args={[deckWidth,1.9,deckWidth*.92]}/>
-          <meshStandardMaterial color="#1d3442" roughness={.48} metalness={.65}/>
+          <meshStandardMaterial color={visual.structure} roughness={.48} metalness={.65}/>
         </mesh>
         {[-1,1].map(side=>(
           <mesh key={side} position={[side*(deckWidth*.48),.98,0]}>
             <boxGeometry args={[.24,.12,deckWidth*.84]}/>
-            <meshBasicMaterial color="#65dce8" toneMapped={false}/>
+            <meshBasicMaterial color={visual.edge} toneMapped={false}/>
           </mesh>
+        ))}
+        {hero&&[-1,1].map(side=>(
+          <group key={side} position={[side*deckWidth*.42,2.05,-deckWidth*.29]}>
+            {/* Source-authored district identification masts outside the
+                canonical 26m road; no new GLBs or collision geometry. */}
+            <mesh>
+              <boxGeometry args={[.48,4.1,.55]}/>
+              <meshStandardMaterial color={visual.structure} metalness={.65} roughness={.44}/>
+            </mesh>
+            <mesh position={[0,1.5,-.30]}>
+              <boxGeometry args={[.36,1.15,.12]}/>
+              <meshBasicMaterial color={visual.beacon} toneMapped={false}/>
+            </mesh>
+          </group>
         ))}
       </group>
       <mesh position={[x,-25+columnHeight/2,z]} castShadow>
@@ -148,14 +164,18 @@ function FlyingTraffic({offset,asset}: {offset:number;asset:KenneyName}) {
 }
 
 export function KenneyDistricts({quality}: {quality:'QUALITY'|'PERFORMANCE'}) {
-  // The reduced preset retains the 9 hero landmarks, not 21 repeating props.
-  const placements=quality==='QUALITY'?DISTRICT:DISTRICT.filter((_,i)=>i%3===0);
+  // These five ORIGINAL source placements anchor the different authored
+  // sections. Keep all five in PERFORMANCE while shedding optional props.
+  const heroIndices=[0,6,11,15,20] as const;
+  const placements=DISTRICT.map((item,index)=>({item,index})).filter(({index})=>
+    quality==='QUALITY'||heroIndices.some(hero=>hero===index)||index%4===0
+  );
   return (
     <group>
-      {placements.map((item,index)=>(
+      {placements.map(({item,index})=>(
         <AssetBoundary key={index} assetLabel={item.asset} asset={item.asset} fallback={null}>
           <Suspense fallback={null}>
-            <SceneryObject item={item}/>
+            <SceneryObject item={item} hero={heroIndices.some(hero=>hero===index)}/>
           </Suspense>
         </AssetBoundary>
       ))}
