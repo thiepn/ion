@@ -1,4 +1,4 @@
-import { headingAt, nearestTrack, ROAD_HALF_WIDTH, TRACK_LENGTH, trackAt } from './track';
+import { BOOST_PAD_T, headingAt, nearestTrack, ROAD_HALF_WIDTH, TRACK_LENGTH, trackAt } from './track';
 
 export type Phase = 'menu' | 'countdown' | 'racing' | 'paused' | 'finished';
 export type FinishReason = 'complete' | 'destroyed' | null;
@@ -37,7 +37,9 @@ export type RaceSnapshot = {
 const MAX_LAPS = 3;
 // A materially different V17 circuit cannot share comparable lap records
 // with the original Nightshift track. Older local records remain untouched.
-const STORAGE_KEY = 'ion-v17-nightshift-best-lap';
+// The I06 redesigned course has a different arc length and different corner
+// difficulty; do not compare its records against V17's original circuit.
+const STORAGE_KEY = 'ion-i06-nightshift-best-lap';
 const INPUT_STICK_DEADZONE_KEY = 'ion-i04-stick-deadzone';
 const DEFAULT_STICK_DEADZONE = 0.15;
 const MIN_STICK_DEADZONE = 0.08;
@@ -734,7 +736,7 @@ export class RaceEngine {
     // Three physical orange source-pad strips. Earn a reward only when
     // moving across the *center* of one strip forward, not merely entering
     // its generous proximity window or reversing within that window.
-    const pads = [0.16, 0.48, 0.80];
+    const pads = BOOST_PAD_T;
     const nearestPad = pads.findIndex(t => Math.abs(road.t - t) < 0.009);
     const crossedPad = travel>0 && validTravel ?
       pads.findIndex(t => previousTrackT<t && road.t>=t) : -1;
