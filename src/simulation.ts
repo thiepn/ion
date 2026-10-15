@@ -446,7 +446,13 @@ export class RaceEngine {
     const desiredPitch=-Math.min(.17,this.speed/620)+(controls.brake>.05?.075:0);
     this.pitch+=(desiredPitch-this.pitch)*(1-Math.exp(-dt*5.2));
 
-    const boundary = ROAD_HALF_WIDTH - 1.5;
+    // Compare the craft *body* with the actual visible rail, not its center.
+    // Kestrel's authored wings extend 3.86m either side of center and the
+    // visible inner rail begins at ROAD_HALF_WIDTH - .28 (12.72m).
+    // The previous 11.5m centerline clamp allowed ~2.64m of wing penetration
+    // before applying the collision, making the guardrail appear non-solid.
+    // Keep a 0.2m margin; the original centerline projection remains in charge.
+    const boundary = ROAD_HALF_WIDTH - 4.15;
     if (Math.abs(road.lateral) > boundary) {
       this.wallReleaseTime=0;
       const side = Math.sign(road.lateral);
