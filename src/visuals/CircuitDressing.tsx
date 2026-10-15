@@ -1,27 +1,28 @@
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  CanvasTexture, DoubleSide, InstancedMesh, Object3D,
+  CanvasTexture, Color, DoubleSide, InstancedMesh, Object3D,
   SRGBColorSpace, Vector3,
 } from 'three';
 import { CIRCUIT_SECTIONS, ROAD_HALF_WIDTH, trackAt } from '../track';
-import { emissiveAmber, emissiveCyan } from './Rendering';
+import { emissiveAmber } from './Rendering';
+import { sectionVisualAt } from './sectionPalette';
 
-function panelTexture(title:string,subtitle:string):CanvasTexture|null {
+function panelTexture(title:string,subtitle:string,accent:string):CanvasTexture|null {
   const canvas=document.createElement('canvas');
   canvas.width=1024;canvas.height=256;
   const c=canvas.getContext('2d');
   if(!c) return null;
   c.fillStyle='#111f2c';c.fillRect(0,0,1024,256);
-  c.fillStyle='#83e9ec';c.fillRect(28,22,9,212);
+  c.fillStyle=accent;c.fillRect(28,22,9,212);
   c.fillStyle='#e6f1f3';c.font='900 126px Arial,sans-serif';
   // Make the longest actual section name readable rather than letting the
   // canvas clip the end of NORTH CREST or HOMECOMING.
   c.fillText(title,68,152,780);
-  c.fillStyle='#f1ab7d';c.font='700 27px Arial,sans-serif';c.fillText(subtitle,72,205);
+  c.fillStyle=accent;c.font='700 27px Arial,sans-serif';c.fillText(subtitle,72,205);
   c.fillStyle='#4c7080';c.fillRect(60,24,915,2);
   c.fillRect(60,225,915,2);
   for(let i=0;i<8;i++){
-    c.fillStyle=i%2?'#dbedf0':'#83e9ec';
+    c.fillStyle=i%2?'#dbedf0':accent;
     c.fillRect(880+i*12,45,7,70);
   }
   const texture=new CanvasTexture(canvas);
@@ -30,11 +31,15 @@ function panelTexture(title:string,subtitle:string):CanvasTexture|null {
   return texture;
 }
 
-function SignalBridge({section}: {section:(typeof CIRCUIT_SECTIONS)[number]}) {
+function SignalBridge({section,quality}: {
+  section:(typeof CIRCUIT_SECTIONS)[number];
+  quality:'QUALITY'|'PERFORMANCE';
+}) {
   const {t,name,hint}=section;
+  const visual=sectionVisualAt(t);
   const {position,tangent}=trackAt(t);
   const yaw=Math.atan2(tangent.x,tangent.z);
-  const texture=useMemo(()=>panelTexture(name,hint),[name,hint]);
+  const texture=useMemo(()=>panelTexture(name,hint,visual.accent),[name,hint,visual.accent]);
   useEffect(()=>()=>texture?.dispose(),[texture]);
   return (
     <group position={[position.x,position.y,position.z]} rotation={[0,yaw,0]}>
@@ -46,7 +51,7 @@ function SignalBridge({section}: {section:(typeof CIRCUIT_SECTIONS)[number]}) {
           </mesh>
           <mesh position={[side,7.2,-.67]}>
             <boxGeometry args={[.12,12.3,.12]}/>
-            <meshBasicMaterial color={emissiveCyan} toneMapped={false}/>
+            <meshBasicMaterial color={visual.beacon} toneMapped={false}/>
           </mesh>
           {[3.2,7.7,11.2].map(y=>(
             <mesh key={y} position={[side>0?side-.55:side+.55,y,0]}>
@@ -62,7 +67,7 @@ function SignalBridge({section}: {section:(typeof CIRCUIT_SECTIONS)[number]}) {
       </mesh>
       <mesh position={[0,15.45,-.16]}>
         <boxGeometry args={[30.5,.14,1.68]}/>
-        <meshBasicMaterial color={emissiveAmber} toneMapped={false}/>
+        <meshBasicMaterial color={visual.accent} toneMapped={false}/>
       </mesh>
       <mesh position={[0,12.85,-.82]}>
         <planeGeometry args={[18.5,4.5]}/>
@@ -71,12 +76,16 @@ function SignalBridge({section}: {section:(typeof CIRCUIT_SECTIONS)[number]}) {
       </mesh>
       <mesh position={[0,10.34,-.84]}>
         <boxGeometry args={[20.2,.14,.2]}/>
-        <meshBasicMaterial color={emissiveCyan} toneMapped={false}/>
+        <meshBasicMaterial color={visual.beacon} toneMapped={false}/>
       </mesh>
+      {quality==='QUALITY' && (
+        <pointLight position={[0,9.4,-3.2]} color={visual.accent}
+          intensity={18} distance={30} decay={2}/>
+      )}
       {[0,1,2,3,4,5].map(i=>(
         <mesh key={i} position={[-12+i*4.8,14.2,-.89]}>
           <boxGeometry args={[.25,.34,.12]}/>
-          <meshBasicMaterial color={i<3?emissiveAmber:emissiveCyan} toneMapped={false}/>
+          <meshBasicMaterial color={i<3?visual.accent:visual.beacon} toneMapped={false}/>
         </mesh>
       ))}
     </group>
@@ -85,7 +94,7 @@ function SignalBridge({section}: {section:(typeof CIRCUIT_SECTIONS)[number]}) {
 
 function BarrierSystem(){
   const posts=useMemo(()=>{
-    const arr:{position:Vector3;heading:number}[]=[];
+    const arr:{position:Vector3;heading:number;accent:string}[]=[];
     for(let i=0;i<200;i++){
       const t=i/100;
       const {position,tangent,right}=trackAt(t);
@@ -97,6 +106,7 @@ function BarrierSystem(){
           position.z+right.z*(ROAD_HALF_WIDTH+1.0)*side
         ),
         heading:Math.atan2(tangent.x,tangent.z),
+        accent:sectionVisualAt(t).edge,
       });
     }
     return arr;
@@ -116,9 +126,11 @@ function BarrierSystem(){
       dummy.scale.set(.52,.16,.75);
       dummy.updateMatrix();
       bandsRef.current.setMatrixAt(i,dummy.matrix);
+      bandsRef.current.setColorAt(i,new Color(posts[i].accent));
     }
     postsRef.current.instanceMatrix.needsUpdate=true;
     bandsRef.current.instanceMatrix.needsUpdate=true;
+    if(bandsRef.current.instanceColor)bandsRef.current.instanceColor.needsUpdate=true;
     postsRef.current.computeBoundingSphere();
     bandsRef.current.computeBoundingSphere();
   },[posts]);
@@ -130,7 +142,7 @@ function BarrierSystem(){
       </instancedMesh>
       <instancedMesh ref={bandsRef} args={[undefined,undefined,posts.length]} frustumCulled={false}>
         <boxGeometry args={[1,1,1]}/>
-        <meshBasicMaterial toneMapped={false} color={emissiveCyan}/>
+        <meshBasicMaterial toneMapped={false} color="#ffffff"/>
       </instancedMesh>
     </group>
   );
@@ -183,7 +195,8 @@ function CoolingTowers({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
     const side=t>.5?-1:1;
     return {
       xyz:[position.x+right.x*70*side,position.y-9,position.z+right.z*70*side] as [number,number,number],
-      yaw:Math.atan2(tangent.x,tangent.z)
+      yaw:Math.atan2(tangent.x,tangent.z),
+      accent:sectionVisualAt(t).beacon,
     };
   }),[]);
   return (
@@ -197,7 +210,7 @@ function CoolingTowers({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
           {[7,17,27,38].map(y=>(
             <mesh key={y} position={[0,y,0]} rotation={[Math.PI/2,0,0]}>
               <torusGeometry args={[9,0.3,5,8]}/>
-              <meshBasicMaterial color={i%2?emissiveAmber:emissiveCyan} toneMapped={false}/>
+              <meshBasicMaterial color={x.accent} toneMapped={false}/>
             </mesh>
           ))}
           <mesh position={[0,46,0]}>
@@ -206,7 +219,7 @@ function CoolingTowers({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
           </mesh>
           <mesh position={[0,53,0]}>
             <sphereGeometry args={[2.5,12,8]}/>
-            <meshBasicMaterial color={i%2?emissiveAmber:emissiveCyan} toneMapped={false}/>
+            <meshBasicMaterial color={x.accent} toneMapped={false}/>
           </mesh>
         </group>
       ))}
@@ -223,7 +236,7 @@ export function CircuitDressing({quality}:{quality:'QUALITY'|'PERFORMANCE'}){
       {/* All five major sections are signposted even in PERFORMANCE mode;
           they are track wayfinding, not optional decorative scenery. */}
       {CIRCUIT_SECTIONS.map(section=>(
-        <SignalBridge key={section.name} section={section}/>
+        <SignalBridge key={section.name} section={section} quality={quality}/>
       ))}
     </group>
   );

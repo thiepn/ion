@@ -26,5 +26,7 @@ node scripts/i12-hud-telemetry-smoke.mjs
 node scripts/i13-menu-lifecycle-smoke.mjs
 # I14 checks genuine licensed material clones, gallery camera and asset manifest.
 node scripts/i14-craft-showcase-smoke.mjs
+# I15 runs true spline-derived district/boost/rail clearance/source asset checks.
+node scripts/i15-environment-smoke.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build

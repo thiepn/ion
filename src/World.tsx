@@ -17,6 +17,7 @@ import { RaceLineGuidance } from './visuals/RaceLineGuidance';
 import { IndustrialHorizon } from './visuals/IndustrialHorizon';
 import { IndustrialSky } from './visuals/IndustrialSky';
 import { ChaseRig, type ShowcaseView } from './visuals/ChaseRig';
+import { boostApproachT } from './visuals/sectionPalette';
 import { KenneyDistricts, KenneyRacer } from './visuals/KenneyAssets';
 import { AssetBoundary } from './visuals/AssetBoundary';
 import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
@@ -116,17 +117,19 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
       <mesh geometry={ribbons.rightWall} castShadow receiveShadow>
         <meshStandardMaterial color="#2c4f60" metalness={.62} roughness={.45} side={DoubleSide}/>
       </mesh>
+      {/* Continuous source-collision rail edge remains visible but muted;
+          the section-coloured instanced guides now carry visual wayfinding. */}
       <mesh geometry={ribbons.leftWallCap}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide}/>
+        <meshBasicMaterial color="#4e95a5" toneMapped={false} side={DoubleSide}/>
       </mesh>
       <mesh geometry={ribbons.rightWallCap}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide}/>
+        <meshBasicMaterial color="#4e95a5" toneMapped={false} side={DoubleSide}/>
       </mesh>
       <mesh geometry={ribbons.leftLight}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide} />
+        <meshBasicMaterial color="#457f90" toneMapped={false} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.rightLight}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide} />
+        <meshBasicMaterial color="#457f90" toneMapped={false} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.centerLine}>
         <meshBasicMaterial color="#819ca3" side={DoubleSide} />
@@ -172,6 +175,58 @@ function startGate(t: number, accent: string) {
       </mesh>
     </group>
   );
+}
+
+/** The real engine still owns pad awards at BOOST_PAD_T. These leading
+ * source-distance chevrons are a visible approach only; they are never
+ * collisions, input or extra boost reward zones. */
+function BoostPadLighting({t}:{t:number}){
+  const lanes=[-7,0,7] as const;
+  const here=trackAt(t);
+  const heading=Math.atan2(here.tangent.x,here.tangent.z);
+  return <group>
+    <group position={[here.position.x,here.position.y+.235,here.position.z]}
+      rotation={[0,heading,0]}>
+      {lanes.map(x=>(
+        <group key={x} position={[x,0,0]}>
+          <mesh>
+            <boxGeometry args={[2.2,.065,6.5]}/>
+            <meshBasicMaterial color="#ffb377" toneMapped={false}/>
+          </mesh>
+          <mesh position={[0,.07,-2.5]}>
+            <boxGeometry args={[1.36,.04,.44]}/>
+            <meshBasicMaterial color="#fff0c5" toneMapped={false}/>
+          </mesh>
+        </group>
+      ))}
+      {[-1,1].map(side=>(
+        <group key={side} position={[side*(ROAD_HALF_WIDTH+1.35),1.9,0]}>
+          <mesh castShadow>
+            <boxGeometry args={[.6,3.6,1.2]}/>
+            <meshStandardMaterial color="#543c35" metalness={.63} roughness={.4}/>
+          </mesh>
+          <mesh position={[0,1.1,-.62]}>
+            <boxGeometry args={[.38,1.15,.1]}/>
+            <meshBasicMaterial color="#ffb377" toneMapped={false}/>
+          </mesh>
+        </group>
+      ))}
+    </group>
+    {[48,30,14].map((meters,index)=>{
+      const section=trackAt(boostApproachT(t,meters));
+      const yaw=Math.atan2(section.tangent.x,section.tangent.z);
+      return <group key={meters} position={[
+        section.position.x,section.position.y+.245,section.position.z
+      ]} rotation={[0,yaw,0]}>
+        {lanes.map(lane=>(
+          <mesh key={lane} position={[lane,0,0]}>
+            <boxGeometry args={[1.6,.045,index===2?2.5:1.3]}/>
+            <meshBasicMaterial color={index===2?'#ffd4a0':'#c48c65'} toneMapped={false}/>
+          </mesh>
+        ))}
+      </group>;
+    })}
+  </group>;
 }
 
 function CircuitDetails() {
@@ -373,20 +428,7 @@ function CircuitDetails() {
           The old decorative gantries at arbitrary fractions looked like
           earned sector gates even when they were not. */}
       {[0.25, 0.50, 0.75].map(t => startGate(t, '#43788a'))}
-      {BOOST_PAD_T.map(t => {
-        const { position, tangent } = trackAt(t);
-        return (
-          <group key={'boost'+t} position={[position.x,position.y+0.2,position.z]}
-            rotation={[0,Math.atan2(tangent.x,tangent.z),0]}>
-            {[-7,0,7].map(x=>(
-              <mesh key={x} position={[x,0,0]}>
-                <boxGeometry args={[2,0.08,4.7]} />
-                <meshBasicMaterial color={ORANGE} toneMapped={false} />
-              </mesh>
-            ))}
-          </group>
-        );
-      })}
+      {BOOST_PAD_T.map(t=><BoostPadLighting key={'boost'+t} t={t}/>)}
     </group>
   );
 }
