@@ -43,6 +43,19 @@ function maps(size:number) {
       c.fillRect(rnd()*size,yy+rnd()*(panel-6),5+rnd()*34,.8+rnd()*2);
     }
   }
+  // Subtle repeated original-service-deck joints and fastening marks;
+  // the base/normal/roughness texture ownership stays in this native renderer.
+  for(let band=0;band<4;band++){
+    const yy=band*panel;
+    for(let x=24;x<size-12;x+=Math.max(36,Math.floor(size/8))){
+      c.fillStyle='rgba(10,25,34,.31)';
+      c.fillRect(x,yy+11,4,2);
+      c.fillRect(x,yy+panel-13,4,2);
+      c.fillStyle='rgba(174,219,209,.13)';
+      c.fillRect(x+1,yy+10,2,1);
+      c.fillRect(x+1,yy+panel-12,2,1);
+    }
+  }
   for(let i=0;i<Math.round(11500*(size/512)**2);i++){
     const x=rnd()*size,y=rnd()*size;
     const alpha=.025+rnd()*.08;
