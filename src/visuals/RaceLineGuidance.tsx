@@ -43,10 +43,28 @@ function RibbonInstances({data,color}: {data:Matrix4[];color:string}) {
 export function RaceLineGuidance({game,quality}:{
   game:RaceEngine; quality:'QUALITY'|'PERFORMANCE';
 }) {
-  const {shoulders,cornerLights,brakeBoards}=useMemo(()=>{
+  const {shoulders,cornerLights,brakeBoards,forwardChevrons}=useMemo(()=>{
     const shoulders:Transform[]=[];
     const cornerLights:Transform[]=[];
     const brakeBoards:Transform[]=[];
+    const forwardChevrons:Transform[]=[];
+    // Surface chevrons show the actual spline travel direction and cannot
+    // be confused with checkpoint scoring or override player steering.
+    // Place them in the inner lanes, clear of the rails/boost strips.
+    for(let i=0;i<20;i++){
+      const t=(i+.12)/20;
+      const {position,right,tangent}=trackAt(t);
+      const yaw=Math.atan2(tangent.x,tangent.z);
+      for(const side of [-1,1]){
+        forwardChevrons.push({
+          pos:new Vector3(
+            position.x-tangent.x*.45+right.x*side*.46,
+            position.y+.20,
+            position.z-tangent.z*.45+right.z*side*.46),
+          yaw:yaw-side*.52,scale:[.24,.045,2.3],
+        });
+      }
+    }
     const density=quality==='QUALITY'?150:80;
     for(let i=0;i<density;i++){
       const t=(i+.35)/density;
@@ -96,6 +114,7 @@ export function RaceLineGuidance({game,quality}:{
       shoulders:buildMatrices(shoulders),
       cornerLights:buildMatrices(cornerLights),
       brakeBoards:buildMatrices(brakeBoards),
+      forwardChevrons:buildMatrices(forwardChevrons),
     };
   },[quality]);
 
@@ -153,7 +172,8 @@ export function RaceLineGuidance({game,quality}:{
     <group>
       <RibbonInstances data={shoulders} color="#58a9c0"/>
       <RibbonInstances data={cornerLights} color="#eda371"/>
-      <RibbonInstances data={brakeBoards} color="#d7e2e4"/>
+      <RibbonInstances data={brakeBoards} color="#f0b48d"/>
+      <RibbonInstances data={forwardChevrons} color="#79e3d2"/>
       <instancedMesh ref={gateRef} args={[undefined,undefined,gateTransforms.length]} castShadow={false}>
         <boxGeometry args={[1,1,1]}/>
         <meshBasicMaterial color="#ffffff" toneMapped={false}/>
