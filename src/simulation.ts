@@ -269,8 +269,13 @@ export class InputController {
       const braking=InputController.filteredTrigger(pad.buttons[6]?.value);
       throttle=Math.max(throttle,gas,Number(Boolean(pad.buttons[0]?.pressed)));
       brake=Math.max(brake,braking,Number(Boolean(pad.buttons[1]?.pressed)));
-      boost=boost||Boolean(pad.buttons[5]?.pressed);
-      if(Math.abs(padSteer)>.08 || gas>.08 || braking>.08 || boost ||
+      const padBoost=Boolean(pad.buttons[5]?.pressed);
+      boost=boost||padBoost;
+      // Only actual controller input claims controller ownership. Keyboard
+      // or touch Space previously set gamepadUsedForDriving via the merged
+      // "boost" variable, causing a disconnected *unused* gamepad to pause
+      // an otherwise keyboard-driven race.
+      if(Math.abs(padSteer)>.08 || gas>.08 || braking>.08 || padBoost ||
          pad.buttons[0]?.pressed || pad.buttons[1]?.pressed)
         this.gamepadUsedForDriving=true;
     }
