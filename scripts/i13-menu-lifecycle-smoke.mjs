@@ -44,7 +44,8 @@ try{
   const input=new InputController();
   assert.equal(input.getStickDeadzone(),.15);
   input.setStickDeadzone(.20);
-  assert.equal(store.get('ion-i04-stick-deadzone'),'.2');
+  assert.equal(Number(store.get('ion-i04-stick-deadzone')),.20,
+    'persisted controller setting should represent the chosen value');
   assert.equal(new InputController().getStickDeadzone(),.20);
   input.press('ArrowUp',19);
   input.press('ArrowRight',20);
