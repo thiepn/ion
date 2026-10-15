@@ -13,7 +13,10 @@ function panelTexture(title:string,subtitle:string):CanvasTexture|null {
   if(!c) return null;
   c.fillStyle='#111f2c';c.fillRect(0,0,1024,256);
   c.fillStyle='#83e9ec';c.fillRect(28,22,9,212);
-  c.fillStyle='#e6f1f3';c.font='900 126px Arial,sans-serif';c.fillText(title,68,152);
+  c.fillStyle='#e6f1f3';c.font='900 126px Arial,sans-serif';
+  // Make the longest actual section name readable rather than letting the
+  // canvas clip the end of NORTH CREST or HOMECOMING.
+  c.fillText(title,68,152,780);
   c.fillStyle='#f1ab7d';c.font='700 27px Arial,sans-serif';c.fillText(subtitle,72,205);
   c.fillStyle='#4c7080';c.fillRect(60,24,915,2);
   c.fillRect(60,225,915,2);
