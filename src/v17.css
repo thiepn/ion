@@ -331,3 +331,36 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
 @media (prefers-reduced-motion:reduce) {
   .small-button,.touch-control,.cta,.secondary-action { transition:none; }
 }
+
+/* I04: existing controls manual owns the persisted controller adjustment;
+   no extra overlay is mounted during racing or on the mobile control plane. */
+.controller-setting {
+  display:grid;
+  gap:8px;
+  padding:14px 0;
+  border-block:1px solid rgba(160,198,203,.28);
+  margin:8px 0 16px;
+}
+.controller-setting label {
+  font:650 11px/1.35 'Inter',system-ui,sans-serif;
+  letter-spacing:.035em;
+  color:#e5f3f0;
+}
+.controller-setting select {
+  width:100%;
+  min-height:44px;
+  border:1px solid #83acb1;
+  border-radius:2px;
+  padding:10px 14px;
+  background:#102832;
+  color:#f2fff9;
+  font:600 13px/1.35 'Inter',system-ui,sans-serif;
+}
+.controller-setting select:focus-visible {
+  outline:3px solid #a8f2dc;
+  outline-offset:2px;
+}
+.controller-setting small {
+  font:400 12px/1.5 'Inter',system-ui,sans-serif;
+  color:#b8d0d3;
+}
