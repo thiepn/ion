@@ -5,7 +5,7 @@ import {
   Object3D, Vector3, BufferGeometry, Float32BufferAttribute,
 } from 'three';
 import { InputController, RaceEngine, type RaceSnapshot } from './simulation';
-import { BOOST_PAD_T, ROAD_HALF_WIDTH, ribbon, trackAt } from './track';
+import { BOOST_PAD_T, RAIL_INNER_OFFSET, RAIL_TOP_RISE, ROAD_HALF_WIDTH, railWall, ribbon, trackAt } from './track';
 import { Craft } from './visuals/Craft';
 import { CircuitDressing } from './visuals/CircuitDressing';
 import { TrackInfrastructure } from './visuals/TrackInfrastructure';
@@ -53,6 +53,10 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
     underside: ribbon(-ROAD_HALF_WIDTH - 1.1, ROAD_HALF_WIDTH + 1.1, -0.95),
     leftRail: ribbon(-ROAD_HALF_WIDTH - 0.95, -ROAD_HALF_WIDTH + 0.28, 0.43),
     rightRail: ribbon(ROAD_HALF_WIDTH - 0.28, ROAD_HALF_WIDTH + 0.95, 0.43),
+    leftWall: railWall(-1),
+    rightWall: railWall(1),
+    leftWallCap: ribbon(-RAIL_INNER_OFFSET-0.25,-RAIL_INNER_OFFSET,RAIL_TOP_RISE),
+    rightWallCap: ribbon(RAIL_INNER_OFFSET,RAIL_INNER_OFFSET+0.25,RAIL_TOP_RISE),
     leftLight: ribbon(-ROAD_HALF_WIDTH + 0.8, -ROAD_HALF_WIDTH + 1.08, 0.17),
     rightLight: ribbon(ROAD_HALF_WIDTH - 1.08, ROAD_HALF_WIDTH - 0.8, 0.17),
     centerLine: ribbon(-0.09, 0.09, 0.13),
@@ -102,6 +106,20 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
       </mesh>
       <mesh geometry={ribbons.rightRail} castShadow>
         <meshStandardMaterial color={RAIL} metalness={0.68} roughness={0.35} side={DoubleSide} />
+      </mesh>
+      {/* Upright visible inner guardrail faces share the original offset used
+          by RaceEngine collision, instead of a shallow road-level stripe. */}
+      <mesh geometry={ribbons.leftWall} castShadow receiveShadow>
+        <meshStandardMaterial color="#2c4f60" metalness={.62} roughness={.45} side={DoubleSide}/>
+      </mesh>
+      <mesh geometry={ribbons.rightWall} castShadow receiveShadow>
+        <meshStandardMaterial color="#2c4f60" metalness={.62} roughness={.45} side={DoubleSide}/>
+      </mesh>
+      <mesh geometry={ribbons.leftWallCap}>
+        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide}/>
+      </mesh>
+      <mesh geometry={ribbons.rightWallCap}>
+        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide}/>
       </mesh>
       <mesh geometry={ribbons.leftLight}>
         <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide} />
