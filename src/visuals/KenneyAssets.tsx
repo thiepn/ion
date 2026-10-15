@@ -1,7 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Box3, Color, Group, Mesh, PointLight, Vector3 } from 'three';
+import { Box3, Group, Mesh, PointLight, Vector3 } from 'three';
+import { repaintLicensedMaterial } from './craftPaint';
 import { trackAt } from '../track';
 import { AssetBoundary } from './AssetBoundary';
 
@@ -36,16 +37,7 @@ export function KenneyModel({asset,width,position=[0,0,0],rotation=[0,0,0],tint}
       child.receiveShadow=true;
       if(tint){
         const materials=Array.isArray(child.material)?child.material:[child.material];
-        const recolored=materials.map(m=>{
-          const copy=m.clone();
-          if('color' in copy && copy.color && typeof copy.color==='object'){
-            const color=copy.color as import('three').Color;
-            color.lerp(new Color(tint),.38);
-          }
-          if('metalness' in copy && typeof copy.metalness==='number') copy.metalness=Math.max(copy.metalness,.48);
-          if('roughness' in copy && typeof copy.roughness==='number') copy.roughness=Math.min(copy.roughness,.62);
-          return copy;
-        });
+        const recolored=materials.map(m=>repaintLicensedMaterial(m,tint));
         child.material=Array.isArray(child.material)?recolored:recolored[0];
       }
     });
@@ -208,19 +200,20 @@ export function KenneyRacer({game,shipRef,hullRef,paint}:{
           <group key={side} position={[side*1.35,.72,-2.65]}>
             <mesh rotation={[Math.PI/2,0,0]}>
               <cylinderGeometry args={[.34,.46,1.25,18]}/>
-              <meshStandardMaterial color="#172735" metalness={.82} roughness={.31}/>
+              <meshPhysicalMaterial color={paint} metalness={.72} roughness={.27}
+                clearcoat={.7} clearcoatRoughness={.23}/>
             </mesh>
             <mesh position={[0,0,-.7]}>
               <torusGeometry args={[.31,.08,8,20]}/>
-              <meshBasicMaterial color="#80effb" toneMapped={false}/>
+              <meshBasicMaterial color="#ffbd7c" toneMapped={false}/>
             </mesh>
             <mesh ref={i===0?flameLeft:flameRight} position={[0,0,-1.2]} rotation={[-Math.PI/2,0,0]}>
               <coneGeometry args={[.28,1.45,14]}/>
-              <meshBasicMaterial color="#7deaff" toneMapped={false} transparent opacity={.62} depthWrite={false}/>
+              <meshBasicMaterial color="#ffb06b" toneMapped={false} transparent opacity={.62} depthWrite={false}/>
             </mesh>
           </group>
         ))}
-        <pointLight ref={boostLight} position={[0,.5,-2.3]} intensity={2} distance={17} color="#65edff"/>
+        <pointLight ref={boostLight} position={[0,.5,-2.3]} intensity={2} distance={17} color="#ffa36b"/>
       </group>
     </group>
   );
