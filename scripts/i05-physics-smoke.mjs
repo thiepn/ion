@@ -13,6 +13,7 @@ import {build} from 'esbuild';
 
 const home=await mkdtemp(path.join(tmpdir(),'ion-i05-'));
 const bundle=path.join(home,'engine.mjs');
+const trackBundle=path.join(home,'track.mjs');
 const neutral={throttle:0,brake:0,steer:0,boost:false};
 const right={...neutral,steer:1};
 const left={...neutral,steer:-1};
@@ -28,7 +29,17 @@ try {
     target:'node22',
     logLevel:'error',
   });
+  await build({
+    entryPoints:['src/track.ts'],
+    outfile:trackBundle,
+    bundle:true,
+    platform:'node',
+    format:'esm',
+    target:'node22',
+    logLevel:'error',
+  });
   const {RaceEngine}=await import(pathToFileURL(bundle).href);
+  const {trackAt,headingAt}=await import(pathToFileURL(trackBundle).href);
   const test=(name,run)=>{run();console.log('PASS '+name);};
 
   test('stationary steering cannot rotate a hovercraft',()=>{
@@ -82,6 +93,22 @@ try {
     for(let i=0;i<8;i++)game.update(1/60,{...right,throttle:1});
     const lag=Math.abs(angleDifference(game.heading,game.motionHeading));
     assert.ok(lag>.004 && lag<.5,'craft must not instant-snap or drift excessively');
+  });
+
+  test('a legitimate speed pad cannot slow a faster active boost run',()=>{
+    const game=new RaceEngine();
+    const t=.159;
+    game.phase='racing';
+    game.position.copy(trackAt(t).position);
+    game.position.y+=2.5;
+    game.heading=headingAt(t);
+    game.motionHeading=game.heading;
+    game.previousT=t;
+    game.progress=t;
+    game.speed=115;
+    game.update(1/60,{...forward,boost:true});
+    assert.equal(game.padSurge,true,'physical forward pad crossing must be earned');
+    assert.ok(game.speed>114,'pad must never snap 115 m/s down to 112');
   });
 
   test('recovery preserves last earned-gate authority',()=>{
