@@ -51,6 +51,21 @@ function DeadzoneSetting({value,onChange,controlId}:{
   </div>;
 }
 
+function AudioMixSetting({value,onChange,controlId}:{
+  value:number;onChange:(value:number)=>void;controlId:string;
+}) {
+  return <div className="audio-mix-setting">
+    <label htmlFor={controlId}>SYNTH AUDIO LEVEL</label>
+    <select id={controlId} value={value}
+      onChange={event=>onChange(Number(event.currentTarget.value))}>
+      {([.25,.5,.75,1] as const).map(level=>
+        <option key={level} value={level}>{Math.round(level*100)}%</option>
+      )}
+    </select>
+    <small>Saved only on this device. Sound still requires the SOUND ON button every session.</small>
+  </div>;
+}
+
 function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'coral'|'blue'}) {
   const level=Math.max(0,Math.min(100,Math.round(amount)));
   return (
@@ -219,6 +234,11 @@ export function App() {
     setStickDeadzone(input.getStickDeadzone());
   },[input]);
   const audio = useMemo(()=>new RaceAudio(),[]);
+  const [soundVolume,setSoundVolume]=useState(()=>audio.volumeLevel);
+  const chooseSoundVolume=useCallback((value:number)=>{
+    audio.setVolume(value);
+    setSoundVolume(audio.volumeLevel);
+  },[audio]);
   const [soundEnabled,setSoundEnabled]=useState(false);
   const [soundError,setSoundError]=useState(false);
   // Track requested state independently of AudioContext.resume() latency.
@@ -315,9 +335,9 @@ export function App() {
 
   const refresh=useCallback(()=>{
     const snapshot=game.snapshot();
-    audio.update(snapshot);
+    audio.update(snapshot,game.phase==='racing'?input.get():undefined);
     setData(snapshot);
-  },[game,audio]);
+  },[game,audio,input]);
   const toggleSound=useCallback(async ()=>{
     const enableRequested=!soundRequested.current;
     soundRequested.current=enableRequested;
@@ -338,7 +358,11 @@ export function App() {
   },[audio,game]);
   useEffect(()=>{
     audio.reopen();
+    const onVisibility=()=>audio.setBackgroundSuspended(document.hidden);
+    document.addEventListener('visibilitychange',onVisibility);
+    onVisibility();
     return ()=>{
+      document.removeEventListener('visibilitychange',onVisibility);
       ++soundIntentVersion.current;
       soundRequested.current=false;
       audio.dispose();
@@ -456,9 +480,9 @@ export function App() {
   },[game,input,refresh,help,togglePause,toggleCamera,recover,requestRaceAction]);
 
   const onTelemetry=useCallback((next:RaceSnapshot)=>{
-    audio.update(next);
+    audio.update(next,next.phase==='racing'?input.get():undefined);
     setData(next);
-  },[audio]);
+  },[audio,input]);
   const onRendererFailure=useCallback((message:string)=>{
     input.clear();
     if(game.phase==='racing'||game.phase==='countdown')game.pause();
@@ -813,6 +837,8 @@ export function App() {
             </button>
             <DeadzoneSetting value={stickDeadzone} onChange={chooseStickDeadzone}
               controlId="ion-pause-stick-deadzone"/>
+            <AudioMixSetting value={soundVolume} onChange={chooseSoundVolume}
+              controlId="ion-pause-audio-volume"/>
             <button type="button" className="secondary-action"
               onClick={()=>setHelp(true)}>OPEN PILOT MANUAL</button>
           </div>
@@ -894,8 +920,10 @@ export function App() {
             </dl>
             <DeadzoneSetting value={stickDeadzone} onChange={chooseStickDeadzone}
               controlId="ion-manual-stick-deadzone"/>
+            <AudioMixSetting value={soundVolume} onChange={chooseSoundVolume}
+              controlId="ion-manual-audio-volume"/>
             <p>Gamepad left stick, D-pad left/right, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery sends you to the last earned quarter gate (or the start grid before S1), costing 5 seconds, 8 shield and 25 boost. It cannot award a missed checkpoint.</p>
-            <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
+            <p>Optional synthesized race audio can be switched on or off with SOUND in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
             <button className="cta" data-close-manual type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
         </div>

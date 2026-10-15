@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { AdditiveBlending, Group, InstancedMesh, Object3D } from 'three';
+import { AdditiveBlending, Group, InstancedMesh, MeshBasicMaterial, Object3D } from 'three';
 import type { RaceEngine } from '../simulation';
 
 /** Small, GPU-instanced, camera-independent speed cues. Purely visual. */
-export function SpeedWake({game,quality}:{
+export function SpeedWake({game,quality,reducedMotion}:{
   game:RaceEngine;
   quality:'QUALITY'|'PERFORMANCE';
+  reducedMotion:boolean;
 }) {
   const group=useRef<Group>(null);
   const streaks=useRef<InstancedMesh>(null);
-  const count=quality==='QUALITY'?50:18;
+  const glow=useRef<MeshBasicMaterial>(null);
+  const count=quality==='QUALITY'?36:12;
   const dummy=useMemo(()=>new Object3D(),[]);
   const seeds=useMemo(()=>Array.from({length:count},(_,i)=>{
     const h=(i*1664525+1013904223)>>>0;
@@ -24,14 +26,17 @@ export function SpeedWake({game,quality}:{
     }
   },[count]);
   useFrame(({clock})=>{
-    const active=game.phase==='racing'&&game.speed>21;
+    const active=!reducedMotion&&game.phase==='racing'&&game.speed>31;
     if(!group.current||!streaks.current)return;
     group.current.visible=active;
     if(!active)return;
     group.current.position.copy(game.position);
     group.current.rotation.y=game.heading;
     const travel=clock.elapsedTime*(8+game.speed*.60);
-    const stretch=.5+Math.min(game.speed/105,1)*1.5;
+    const power=Math.min(1,Math.max(0,(game.speed-31)/85));
+    const stretch=.48+power*1.35;
+    if(glow.current)glow.current.opacity=
+      Math.min(.31,.10+power*.12+((game.isBoosting||game.padSurge)?.07:0));
     for(let i=0;i<count;i++){
       const seed=seeds[i];
       const phase=((seed.gap*100+travel)%85);
@@ -47,7 +52,7 @@ export function SpeedWake({game,quality}:{
     <group ref={group} visible={false}>
       <instancedMesh ref={streaks} args={[undefined,undefined,count]}>
         <boxGeometry args={[1,1,1]}/>
-        <meshBasicMaterial color="#94ebef" opacity={.30} transparent
+        <meshBasicMaterial ref={glow} color="#94ebef" opacity={.10} transparent
           blending={AdditiveBlending} depthWrite={false} toneMapped={false}/>
       </instancedMesh>
     </group>

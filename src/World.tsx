@@ -536,7 +536,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, sh
       <TrackInfrastructure quality={quality}/>
       <KenneyDistricts quality={quality}/>
       <AtmosphericParticles quality={quality}/>
-      <SpeedWake game={game} quality={quality}/>
+      <SpeedWake game={game} quality={quality} reducedMotion={prefersReducedMotion}/>
       <BoostFX game={game} quality={quality}/>
       <RailImpactFX game={game} quality={quality}/>
       {craftKind==='RACER' ? (
