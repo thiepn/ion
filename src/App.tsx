@@ -214,6 +214,7 @@ export function App() {
   const [rendererEpoch,setRendererEpoch]=useState(0);
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
+  const [touchResetSerial,setTouchResetSerial]=useState(0);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
     try {return localStorage.getItem('ion-v4-craft')==='RACER'?'RACER':'KESTREL';}catch{return 'KESTREL';}
   });
@@ -280,8 +281,14 @@ export function App() {
   },[game,input,refresh]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
   const recover=useCallback(()=>{
-    if(game.recover())refresh();
-  },[game,refresh]);
+    if(!game.recover())return;
+    // Recovery teleports the craft. Releasing every held input, then
+    // remounting both thumb zones prevents a finger held across recovery
+    // from steering/accelerating the newly recovered vehicle on its own.
+    input.clear();
+    setTouchResetSerial(n=>n+1);
+    refresh();
+  },[game,input,refresh]);
 
   useEffect(()=>{
     input.attach();
@@ -615,9 +622,9 @@ export function App() {
 
       {isRace && (
         <div className="touch-bar" aria-label="Thumb driving controls">
-          <TouchZone input={input} actions={STEERING_ACTIONS}
+          <TouchZone key={'steer-'+touchResetSerial} input={input} actions={STEERING_ACTIONS}
             className="touch-steering" label="Steering" keyboardBase={-101}/>
-          <TouchZone input={input} actions={DRIVING_ACTIONS}
+          <TouchZone key={'drive-'+touchResetSerial} input={input} actions={DRIVING_ACTIONS}
             className="touch-driving" label="Throttle, brake and boost" keyboardBase={-201}/>
           <button type="button" className="touch-recover" disabled={!data.recoveryReady}
             onClick={recover} aria-label="Recover to most recent earned checkpoint with penalty">
