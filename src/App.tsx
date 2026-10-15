@@ -63,34 +63,32 @@ function TouchZone({input,actions,className,label,keyboardBase}:{
   label:string;
   keyboardBase:number;
 }) {
-  const heldByPointer=useRef<Map<number,string>>(new Map());
+  const heldByPointer=useRef<Map<number,string|null>>(new Map());
   const [pressed,setPressed]=useState<Set<string>>(()=>new Set());
 
   const syncPressed=()=>{
-    setPressed(new Set(heldByPointer.current.values()));
+    setPressed(new Set([...heldByPointer.current.values()].filter((code):code is string=>code!==null)));
   };
   const release=(pointerId:number)=>{
     const old=heldByPointer.current.get(pointerId);
     if(old===undefined)return;
-    input.release(old,pointerId);
+    if(old!==null)input.release(old,pointerId);
     heldByPointer.current.delete(pointerId);
     syncPressed();
   };
   const transfer=(pointerId:number,next:string|null)=>{
     const old=heldByPointer.current.get(pointerId);
     if(old===undefined||old===next)return;
-    input.release(old,pointerId);
-    if(next===null) {
-      heldByPointer.current.delete(pointerId);
-    } else {
-      input.press(next,pointerId);
-      heldByPointer.current.set(pointerId,next);
-    }
+    if(old!==null)input.release(old,pointerId);
+    if(next!==null)input.press(next,pointerId);
+    // Preserve the physical pointer even when it leaves the zone. If it
+    // returns while captured, the nearest button can rearm immediately.
+    heldByPointer.current.set(pointerId,next);
     syncPressed();
   };
   const resetAll=()=>{
     const current=heldByPointer.current;
-    current.forEach((code,pointerId)=>input.release(code,pointerId));
+    current.forEach((code,pointerId)=>{if(code!==null)input.release(code,pointerId);});
     current.clear();
     syncPressed();
   };
@@ -109,7 +107,7 @@ function TouchZone({input,actions,className,label,keyboardBase}:{
       window.removeEventListener('orientationchange',resetAll);
       document.removeEventListener('visibilitychange',onHidden);
       // Cleanup releases every live physical/key pointer without setState.
-      heldByPointer.current.forEach((code,id)=>input.release(code,id));
+      heldByPointer.current.forEach((code,id)=>{if(code!==null)input.release(code,id);});
       heldByPointer.current.clear();
     };
   // InputController lifetime is the same as the app; no stale handlers.
