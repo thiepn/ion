@@ -40,16 +40,22 @@ function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'c
 }
 
 function TouchButton({ code, text, input }: { code:string; text:string; input:InputController }) {
-  const activePointers=useRef<Set<number>>(new Set());
+  // Pointer capture keeps delivering moves to the original button. A player
+  // sliding a thumb from LEFT to RIGHT should switch the *original* control,
+  // not have to lift and press again. InputController stays the only input
+  // owner, keyed by the actual browser pointer ID.
+  const activePointers=useRef<Map<number,string|null>>(new Map());
   const release=(pointerId:number)=>{
+    const held=activePointers.current.get(pointerId);
+    if(held)input.release(held,pointerId);
     activePointers.current.delete(pointerId);
-    input.release(code,pointerId);
   };
   useEffect(()=>{
     const active=activePointers.current;
     return ()=>{
-      // Removing a captured button can omit pointerup. Release on unmount.
-      active.forEach(id=>input.release(code,id));
+      // Removing a captured button can omit pointerup. Do not leave a
+      // stale steer/throttle held after unmount or interruption.
+      active.forEach((held,id)=>{if(held)input.release(held,id);});
       active.clear();
     };
   },[code,input]);
@@ -57,10 +63,30 @@ function TouchButton({ code, text, input }: { code:string; text:string; input:In
     onPointerDown={event=>{
       event.preventDefault();
       if(event.pointerType==='mouse' && event.button!==0)return;
-      activePointers.current.add(event.pointerId);
+      if(activePointers.current.has(event.pointerId))return;
+      activePointers.current.set(event.pointerId,code);
       input.press(code,event.pointerId);
       try{event.currentTarget.setPointerCapture(event.pointerId);}
       catch{release(event.pointerId);}
+    }}
+    onPointerMove={event=>{
+      if(!activePointers.current.has(event.pointerId) ||
+         (code!=='ArrowLeft' && code!=='ArrowRight'))return;
+      const rect=event.currentTarget.parentElement?.getBoundingClientRect();
+      if(!rect)return;
+      // Give one-thumb steering a narrow grace edge; moving completely out
+      // of the steering zone safely neutralizes the held steering intent.
+      const inReach=event.clientX>=rect.left-12 &&
+        event.clientX<=rect.right+12 &&
+        event.clientY>=rect.top-12 &&
+        event.clientY<=rect.bottom+12;
+      const next=inReach?
+        (event.clientX<rect.left+rect.width*.5?'ArrowLeft':'ArrowRight'):null;
+      const previous=activePointers.current.get(event.pointerId);
+      if(previous===next)return;
+      if(previous)input.release(previous,event.pointerId);
+      if(next)input.press(next,event.pointerId);
+      activePointers.current.set(event.pointerId,next);
     }}
     onPointerUp={event=>release(event.pointerId)}
     onPointerCancel={event=>release(event.pointerId)}
