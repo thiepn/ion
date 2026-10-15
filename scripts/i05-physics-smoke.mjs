@@ -47,13 +47,18 @@ try {
       game.phase='racing';
       game.speed=18;
     }
-    const before=toRight.heading;
+    const neutralGame=new RaceEngine();
+    neutralGame.phase='racing';
+    neutralGame.speed=18;
     for(let i=0;i<8;i++){
       toRight.update(1/60,right);
       toLeft.update(1/60,left);
+      neutralGame.update(1/60,neutral);
     }
-    assert.ok(angleDifference(toRight.heading,before)<0);
-    assert.ok(angleDifference(toLeft.heading,before)>0);
+    // Comparing against the neutral craft isolates player steering from
+    // natural road curvature and the genuine on-track steering assist.
+    assert.ok(angleDifference(toRight.heading,neutralGame.heading)<0);
+    assert.ok(angleDifference(toLeft.heading,neutralGame.heading)>0);
     assert.ok(angleDifference(toRight.heading,toLeft.heading)<0);
   });
 
