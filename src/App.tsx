@@ -436,7 +436,7 @@ export function App() {
           <span className="identity-detail">NIGHTSHIFT / TIME TRIAL</span>
         </div>
         <div className="masthead-right">
-          <span className="build-label">V17 · CIRCUIT REWORK</span>
+          <span className="build-label">I06 · NIGHTSHIFT CIRCUIT</span>
           <button className="small-button" type="button" onClick={toggleSound}
             aria-pressed={soundEnabled} aria-label={soundEnabled?'Mute race audio':'Enable race audio'}>
             SOUND {soundEnabled?'ON':'OFF'}
@@ -506,14 +506,14 @@ export function App() {
           <div className="menu-rule"><span>ION / NIGHTSHIFT</span><span>3 LAPS · TIME TRIAL</span></div>
           <p className="intro-overline">TAKE THE LINE. BEAT YOUR TIME.</p>
           <h1>DRIVE<br/><em>THE NIGHT.</em></h1>
-          <p className="intro-copy">A new elevated circuit with chicanes, crests and long straights. Three laps. No traffic. Just the line, your machine and the clock.</p>
+          <p className="intro-copy">Five readable sectors: a long launch, east-side S-bends, a northern crest, a braking descent and a fast return. Three laps. Your line, your time.</p>
           <div className="menu-actions">
             <button type="button" className="cta" onClick={start}>START TIME TRIAL <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setGarage(true)}>CUSTOMIZE HOVERCRAFT <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setHelp(true)}>CONTROLS & HOW TO PLAY <span aria-hidden="true">↗</span></button>
           </div>
           <div className="menu-stats">
-            <div><span>TRACK</span><b>01 / NIGHTSHIFT REWORK</b></div>
+            <div><span>TRACK</span><b>01 / NIGHTSHIFT I06</b></div>
             <div><span>YOUR BEST LAP</span><b className="mono">{data.bestLap===null?'— NO RECORD —':formatTime(data.bestLap)}</b></div>
           </div>
         </main>
