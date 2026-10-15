@@ -534,6 +534,8 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
 .finish-panel {max-height:calc(100dvh - 104px)}
 .help-dialog {outline:0}
 .help-dialog .cta,.help-dialog .secondary-action {min-height:44px}
+.menu-panel {border-left:1px solid rgba(133,233,213,.55);padding-left:clamp(12px,1.7vw,22px)}
+.menu-panel .intro-overline {letter-spacing:.12em}
 .menu-panel h1 {text-wrap:balance}
 .menu-rule,.label-line,.menu-stats span,.eyebrow {
   font-variant-numeric:tabular-nums;
@@ -556,6 +558,8 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   .dialog-panel,.finish-panel {max-height:calc(100dvh - 75px)}
   .dialog-panel h2 {font-size:clamp(43px,13vw,72px)}
   .results {margin-bottom:10px}
+  .results>.lap-result {flex-direction:column;gap:7px}
+  .lap-result-metrics {max-width:100%!important;justify-items:start!important;text-align:left!important}
   .results>div {gap:9px}
   .results span {font-size:9px}
   .lap-result-metrics {max-width:75%}
@@ -568,6 +572,8 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   }
   .dialog-panel h2 {font-size:clamp(43px,9vh,61px)}
   .menu-panel h1 {font-size:clamp(46px,11vh,72px)}
+  .menu-panel {padding-left:11px}
+  .menu-panel .intro-overline {margin:5px 0 6px}
   .race-time strong {font-size:clamp(21px,5vh,31px)}
 }
 @media (prefers-reduced-motion:reduce) {
