@@ -97,7 +97,11 @@ try {
 
   test('a legitimate speed pad cannot slow a faster active boost run',()=>{
     const game=new RaceEngine();
-    const t=.159;
+    // A single 16.7ms frame does NOT guarantee a source-spline crossing on
+    // a different course. Begin far enough before the pad, then integrate
+    // actual forward movement through the original RaceEngine until the
+    // crossing is earned. This test must never set padSurge or grant rewards.
+    const t=.154;
     game.phase='racing';
     game.position.copy(trackAt(t).position);
     game.position.y+=2.5;
@@ -106,9 +110,16 @@ try {
     game.previousT=t;
     game.progress=t;
     game.speed=115;
-    game.update(1/60,{...forward,boost:true});
-    assert.equal(game.padSurge,true,'physical forward pad crossing must be earned');
-    assert.ok(game.speed>114,'pad must never snap 115 m/s down to 112');
+    let crossed=false, speedBefore=115;
+    for(let i=0;i<18;i++){
+      speedBefore=game.speed;
+      game.update(1/60,{...forward,boost:true});
+      if(game.padSurge){crossed=true;break;}
+    }
+    assert.equal(crossed,true,
+      'physical forward pad crossing must be earned within the actual approach');
+    assert.ok(game.speed>=speedBefore-.4,
+      'pad must not snap an already faster craft down to 112 m/s');
   });
 
   test('recovery preserves last earned-gate authority',()=>{
