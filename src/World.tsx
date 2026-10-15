@@ -117,17 +117,19 @@ function Road({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
       <mesh geometry={ribbons.rightWall} castShadow receiveShadow>
         <meshStandardMaterial color="#2c4f60" metalness={.62} roughness={.45} side={DoubleSide}/>
       </mesh>
+      {/* Continuous source-collision rail edge remains visible but muted;
+          the section-coloured instanced guides now carry visual wayfinding. */}
       <mesh geometry={ribbons.leftWallCap}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide}/>
+        <meshBasicMaterial color="#4e95a5" toneMapped={false} side={DoubleSide}/>
       </mesh>
       <mesh geometry={ribbons.rightWallCap}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide}/>
+        <meshBasicMaterial color="#4e95a5" toneMapped={false} side={DoubleSide}/>
       </mesh>
       <mesh geometry={ribbons.leftLight}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide} />
+        <meshBasicMaterial color="#457f90" toneMapped={false} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.rightLight}>
-        <meshBasicMaterial color={CYAN} toneMapped={false} side={DoubleSide} />
+        <meshBasicMaterial color="#457f90" toneMapped={false} side={DoubleSide} />
       </mesh>
       <mesh geometry={ribbons.centerLine}>
         <meshBasicMaterial color="#819ca3" side={DoubleSide} />
