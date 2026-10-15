@@ -514,6 +514,10 @@ export function App() {
                 'GO · FOLLOW S1'}</strong>
               {recentEvent && <span>{formatTime(recentEvent.time)}
                 {recentEvent.kind==='lap' && recentEvent.personalBest?' · PERSONAL BEST':''}
+                {recentEvent.kind==='lap' && data.completedLapChallenges[recentEvent.lap-1]?.clean?
+                  ' · CLEAN LAP':''}
+                {recentEvent.kind==='lap'?
+                  ' · '+(data.completedLapChallenges[recentEvent.lap-1]?.pads??0)+'/3 PADS':''}
                 {recentEvent.kind==='sector'?' · NEXT '+(recentEvent.sector===3?'FINISH':'S'+(recentEvent.sector+1)):''}
               </span>}
             </div>
@@ -529,6 +533,8 @@ export function App() {
               <span className="quiet split-hud">{data.lastSectorTime===null?
                 'FIRST SPLIT PENDING':
                 `LAST S${data.lastSector} · ${formatTime(data.lastSectorTime)}`}</span>
+              <span className="quiet replay-live">THIS LAP · {data.currentLapClean?'CLEAN SO FAR':'RAIL/RECOVERY RECORDED'}
+                {' · '}{data.currentLapPads}/3 PADS</span>
             </div>
             <div className="race-value race-time">
               <span className="eyebrow">RACE TIME</span>
@@ -572,6 +578,11 @@ export function App() {
           <p className="intro-overline">TAKE THE LINE. BEAT YOUR TIME.</p>
           <h1>DRIVE<br/><em>THE NIGHT.</em></h1>
           <p className="intro-copy">Five readable sectors: a long launch, east-side S-bends, a northern crest, a braking descent and a fast return. Three laps. Your line, your time.</p>
+          <p className="replay-challenge">NEXT RUN · {data.bestLap===null?
+            'SET YOUR FIRST VERIFIED LAP TIME':
+            'BEAT '+formatTime(data.bestLap)+' ON THE SAME CIRCUIT'}
+            <span>OPTIONAL: FINISH A LAP WITHOUT RAIL DAMAGE OR RECOVERY, AND EARN ALL 3 BOOST STRIPS.</span>
+          </p>
           <div className="menu-actions">
             <button type="button" className="cta" onClick={start}>START TIME TRIAL <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={()=>setGarage(true)}>CUSTOMIZE HOVERCRAFT <span aria-hidden="true">↗</span></button>
@@ -668,6 +679,12 @@ export function App() {
           {won&&data.newRecordThisRun&&(
             <div className="finish-best" role="status">NEW PERSONAL BEST LAP · {data.bestLap===null?'—':formatTime(data.bestLap)}</div>
           )}
+          {won && <p className="replay-result-summary">
+            {data.recordToBeat===null?'FIRST VERIFIED RECORD RUN':
+              'PREVIOUS RECORD: '+formatTime(data.recordToBeat)}
+            {' · '}{data.completedLapChallenges.filter(lap=>lap.clean).length}/3 CLEAN LAPS
+            {' · '}{data.completedLapChallenges.filter(lap=>lap.pads===3).length}/3 FULL-PAD LAPS
+          </p>}
           {won && <div className="results">
             <div><span>TOTAL TIME</span><strong className="mono">{formatTime(data.elapsed)}</strong></div>
             {data.lapTimes.map((lap,index)=>(
@@ -677,11 +694,23 @@ export function App() {
                   <strong className="mono">{formatTime(lap)}</strong>
                   <small>{(data.completedSectorTimes[index]||[]).map((split,sector)=>
                     'S'+(sector+1)+' '+formatTime(split)).join('  ·  ')}</small>
+                  {data.completedLapChallenges[index] && (
+                    <small className="replay-lap-status">
+                      {data.completedLapChallenges[index].clean?'CLEAN LAP':'RAIL DAMAGE / RECOVERY'}
+                      {' · '}{data.completedLapChallenges[index].pads}/3 EARNED PADS
+                      {data.completedLapChallenges[index].differenceFromStartingBest===null?
+                        ' · FIRST RECORD RUN':
+                        ' · '+(data.completedLapChallenges[index].differenceFromStartingBest!<0?
+                          'FASTER THAN PRIOR PB BY '+formatTime(-data.completedLapChallenges[index].differenceFromStartingBest!):
+                          'BEHIND PRIOR PB BY '+formatTime(data.completedLapChallenges[index].differenceFromStartingBest!))}
+                    </small>
+                  )}
                 </div>
               </div>
             ))}
             <div><span>PERSONAL BEST LAP</span><strong className="mono">{data.bestLap===null?'—':formatTime(data.bestLap)}</strong></div>
             <div><span>RECOVERIES</span><strong className="mono">{data.recoveryCount} · +{data.recoveryCount*5} S</strong></div>
+            <div><span>NEXT CHALLENGE</span><strong>BEAT YOUR BEST · CLEAN LAP · ALL 3 PADS</strong></div>
           </div>}
           <button type="button" className="cta" onClick={start}>RACE AGAIN <span>↗</span></button>
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
