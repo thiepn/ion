@@ -61,7 +61,8 @@ try{
     packages:'external',logLevel:'error'});
   const {RaceAudio}=await import(pathToFileURL(path.join(dir,'audio.mjs')).href);
   const {RaceEngine}=await import(pathToFileURL(path.join(dir,'engine.mjs')).href);
-  const {trackAt,TRACK_LENGTH}=await import(pathToFileURL(path.join(dir,'track.mjs')).href);
+  const {trackAt,headingAt,RAIL_INNER_OFFSET,TRACK_LENGTH}=
+    await import(pathToFileURL(path.join(dir,'track.mjs')).href);
 
   const audio=new RaceAudio();
   const game=new RaceEngine();
@@ -147,6 +148,31 @@ try{
     steps+' steps, '+completed.length+' laps, '+padEvents.size+
     ' earned pad states, '+cueOscillators+' one-shot cues');
 
+  // Reuse the exact source setup qualified by I07 collision fairness:
+  // an angled Kestrel contacts the real rail and the original engine
+  // subtracts shield. The audio can cue ONLY that observed physical hit.
+  const contact=new RaceEngine();
+  const site=trackAt(.055);
+  contact.phase='racing';
+  contact.position.copy(site.position);
+  contact.position.addScaledVector(site.right,RAIL_INNER_OFFSET-2.6);
+  contact.position.y+=2.5;
+  contact.heading=headingAt(.055)+Math.PI/4;
+  contact.motionHeading=contact.heading;
+  contact.previousT=.055;
+  contact.progress=.055;
+  contact.speed=42;
+  audio.update(contact.snapshot(),{throttle:0,brake:0,steer:0,boost:false});
+  const priorShield=contact.shield;
+  const priorSounds=ctx.started.length;
+  contact.update(1/60,{throttle:0,brake:0,steer:0,boost:false});
+  assert.ok(contact.shield<priorShield,
+    'the original rail collision, not a fabricated impact, must remove shield');
+  audio.update(contact.snapshot());
+  assert.ok(ctx.started.length>priorSounds,
+    'a real rising shield-damaging rail impact must create one cue');
+  pass('source-earned fast wall contact synthesizes bounded impact feedback');
+
   const before=ctx.started.length;
   audio.disable();
   await Promise.resolve();
@@ -179,6 +205,17 @@ try{
   assert.equal(ctx.state,'running');
   assert.equal(master.gain.value,.75);
   pass('hidden tab suspension and opt-in foreground resumption');
+  // Browser AudioContext resume can resolve after a later mute request.
+  const rapid=new RaceAudio();
+  const pending=rapid.enable();
+  rapid.disable();
+  assert.equal(await pending,false,'an obsolete enable request cannot win');
+  assert.equal(rapid.enabled,false);
+  assert.equal(await rapid.enable(),true,
+    'subsequent explicit on gesture may unlock the same safe graph');
+  rapid.dispose();
+  pass('rapid ON/OFF/ON ignores stale async audio activation');
+
   audio.dispose();
   assert.equal(ctx.state,'closed');
   assert.ok(ctx.stopped.length>=3);
