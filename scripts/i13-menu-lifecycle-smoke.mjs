@@ -123,10 +123,15 @@ try{
   ];
   for(const fragment of required)
     assert.ok(app.includes(fragment),'missing original UI behavior '+fragment);
-  assert.ok(!app.includes('onClick={start}>RESTART FROM GRID'),
+  const pausedSource=app.split("{data.phase==='paused' && (")[1]
+    ?.split("{data.phase==='finished' && (")[0];
+  assert.ok(pausedSource,'actual paused source view required');
+  assert.ok(!pausedSource.includes('onClick={start}>RESTART FROM GRID'),
     'active pause-screen restart must not discard race immediately');
-  assert.ok(!app.includes('onClick={mainMenu}>RETURN TO MENU'),
+  assert.ok(!pausedSource.includes('onClick={mainMenu}>RETURN TO MENU'),
     'active pause-screen menu must not discard race immediately');
+  assert.ok(app.includes('onClick={mainMenu}>RETURN TO MENU'),
+    'finished results legitimately allow immediate return to menu');
   assert.ok(css.includes('.race-exit-confirm'));
   assert.ok(css.includes('min-height:44px'));
   assert.ok(css.includes('(orientation:landscape) and (max-height:540px)'));
