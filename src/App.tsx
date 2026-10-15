@@ -752,7 +752,9 @@ export function App() {
         <main className="dialog-panel">
           <div className="label-line">RACE CONTROL / SUSPENDED</div>
           <h2>PAUSED<span className="period">.</span></h2>
-          <p>Your run is frozen. Resume from the same position and lap.</p>
+          <p>Your run is frozen at lap {data.lap} / {data.laps},
+            {data.nextGateLabel.toLowerCase()} next ({data.distanceToGateM} m).
+            Race time: {formatTime(data.elapsed)}. Resume preserves your scored progress.</p>
           {pendingRaceAction ? (
             <div className="race-exit-confirm" role="group"
               aria-label={pendingRaceAction==='restart'?
