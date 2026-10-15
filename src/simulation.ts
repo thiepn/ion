@@ -4,6 +4,14 @@ export type Phase = 'menu' | 'countdown' | 'racing' | 'paused' | 'finished';
 export type FinishReason = 'complete' | 'destroyed' | null;
 export type Controls = { throttle: number; brake: number; steer: number; boost: boolean };
 /** Source-owned acknowledgement, never a second lap/score authority. */
+export type CompletedLapChallenge = {
+  /** Clean means no original rail damage and no earned-gate recovery. */
+  clean:boolean;
+  /** Number of physical boost strips actually awarded by RaceEngine. */
+  pads:number;
+  /** Comparison to the real personal best stored before this run. */
+  differenceFromStartingBest:number|null;
+};
 export type RaceEvent = {
   serial: number;
   kind:'sector'|'lap';
@@ -25,6 +33,10 @@ export type RaceSnapshot = {
   lapTimes: number[];
   /** Exact original scored S1–S4 splits for each already finished lap. */
   completedSectorTimes: number[][];
+  completedLapChallenges:CompletedLapChallenge[];
+  recordToBeat:number|null;
+  currentLapClean:boolean;
+  currentLapPads:number;
   raceEvent:RaceEvent|null;
   newRecordThisRun:boolean;
   bestLap: number | null;
@@ -320,6 +332,10 @@ export class RaceEngine {
   lapTime = 0;
   lapTimes: number[] = [];
   completedSectorTimes:number[][]=[];
+  completedLapChallenges:CompletedLapChallenge[]=[];
+  private lapHadImpact=false;
+  private lapHadRecovery=false;
+  private lapEarnedPads=0;
   raceEvent:RaceEvent|null=null;
   private eventSerial=0;
   private runStartBestLap:number|null=null;
@@ -378,6 +394,10 @@ export class RaceEngine {
     this.lapTime = 0;
     this.lapTimes = [];
     this.completedSectorTimes=[];
+    this.completedLapChallenges=[];
+    this.lapHadImpact=false;
+    this.lapHadRecovery=false;
+    this.lapEarnedPads=0;
     this.raceEvent=null;
     this.runStartBestLap=this.bestLap;
     this.newRecordThisRun=false;
@@ -455,6 +475,7 @@ export class RaceEngine {
     this.padSurgeSeconds=0;
     this.lastBoostPadDistance=(this.lap-1)+t;
     this.recoveryCount++;
+    this.lapHadRecovery=true;
     // Any prior lap/sector announcement no longer describes the player's
     // current position after an authoritative checkpoint recovery.
     this.raceEvent=null;
@@ -624,6 +645,7 @@ export class RaceEngine {
         this.shield=Math.max(0,this.shield-
           Math.max(6,Math.min(19,(4+impactSpeed*.115)*(.72+.54*incidence))));
         this.wallCooldown = 0.64;
+        this.lapHadImpact=true;
         this.impact = 1;
         this.lastImpactSide=side;
       }
@@ -755,8 +777,18 @@ export class RaceEngine {
       // synthetic scorer is added. Recovery penalties remain in the active
       // incomplete sector and therefore in the official lap total.
       this.completedSectorTimes.push([...this.sectorTimes]);
-      const newPersonalBest=this.runStartBestLap===null ||
-        completedLap<this.runStartBestLap;
+      this.completedLapChallenges.push({
+        clean:!this.lapHadImpact&&!this.lapHadRecovery,
+        pads:this.lapEarnedPads,
+        differenceFromStartingBest:this.runStartBestLap===null?null:
+          completedLap-this.runStartBestLap,
+      });
+      // Only an actually faster lap than the CURRENT official saved best
+      // may be labelled a new PB. I09 incorrectly compared each lap against
+      // the start-of-run value, so a slower lap 2 could claim a PB if it
+      // merely beat yesterday's record but lost to lap 1.
+      const newPersonalBest=this.bestLap===null ||
+        completedLap<this.bestLap;
       this.newRecordThisRun ||= newPersonalBest;
       this.raceEvent={
         serial:++this.eventSerial,
@@ -782,6 +814,9 @@ export class RaceEngine {
       this.sectorTimes=[];
       this.lastSectorTime=null;
       this.lastSector=null;
+      this.lapHadImpact=false;
+      this.lapHadRecovery=false;
+      this.lapEarnedPads=0;
       this.lap++;
       if(this.lap>MAX_LAPS){
         // The official race clock stops at the exact forward finish crossing;
@@ -817,6 +852,7 @@ export class RaceEngine {
       // must not *reduce* an already-faster 115 m/s active-boost run.
       this.speed=Math.max(this.speed,Math.min(112,this.speed+16));
       this.padSurgeSeconds=.9;
+      this.lapEarnedPads++;
       this.usedBoostPad = crossedPad;
       this.lastBoostPadDistance = distance;
     } else if (nearestPad === -1) {
@@ -836,6 +872,10 @@ export class RaceEngine {
       lapTime: this.lapTime,
       lapTimes: [...this.lapTimes],
       completedSectorTimes:this.completedSectorTimes.map(splits=>[...splits]),
+      completedLapChallenges:this.completedLapChallenges.map(challenge=>({...challenge})),
+      recordToBeat:this.runStartBestLap,
+      currentLapClean:!this.lapHadImpact&&!this.lapHadRecovery,
+      currentLapPads:this.lapEarnedPads,
       raceEvent:this.raceEvent===null?null:{...this.raceEvent},
       newRecordThisRun:this.newRecordThisRun,
       bestLap: this.bestLap,
