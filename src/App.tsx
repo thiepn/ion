@@ -169,6 +169,9 @@ export function App() {
 
   useEffect(()=>{
     input.attach();
+    // Keep focused header buttons from swallowing WASD/arrow driving while
+    // retaining native keyboard activation of controls in menus and pause.
+    input.isRaceActive=()=>game.phase==='racing'||game.phase==='countdown';
     input.onGamepadDisconnect=()=>{
       disconnectedController.current=true;
       const active=game.phase==='racing'||game.phase==='countdown';
