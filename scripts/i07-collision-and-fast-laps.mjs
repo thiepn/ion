@@ -12,6 +12,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
+import {PerspectiveCamera} from 'three';
 
 const home=await mkdtemp(path.join(tmpdir(),'ion-i07-'));
 const angle=d=>Math.atan2(Math.sin(d),Math.cos(d));
@@ -27,11 +28,14 @@ const pass=(label,result='')=>{
 try{
   const enginePath=path.join(home,'simulation.mjs');
   const trackPath=path.join(home,'track.mjs');
+  const cameraPath=path.join(home,'camera.mjs');
   for(const [entryPoints,outfile] of [
     [['src/simulation.ts'],enginePath],[['src/track.ts'],trackPath],
+    [['src/visuals/ChaseRig.ts'],cameraPath],
   ])await build({entryPoints,outfile,platform:'node',format:'esm',target:'node22',
     bundle:true,logLevel:'error'});
   const {RaceEngine}=await import(pathToFileURL(enginePath).href);
+  const {ChaseRig}=await import(pathToFileURL(cameraPath).href);
   const {
     trackAt,headingAt,nearestTrack,TRACK_LENGTH,ROAD_HALF_WIDTH,
     RAIL_INNER_OFFSET,RAIL_TOP_RISE,RAIL_BOTTOM_RISE,railWall,BOOST_PAD_T
@@ -102,6 +106,21 @@ try{
   }
   pass('physical road-deck height clearance','five elevations');
 
+  for(const mode of ['CHASE','NEAR']){
+    for(const side of [-1,1]){
+      const game=setCraft(.63,side,8,0,35);
+      const cam=new PerspectiveCamera(64,16/9,.05,1500);
+      const rig=new ChaseRig();
+      for(let i=0;i<45;i++)rig.update(cam,game,1/60,mode,false,i/60,false);
+      const local=nearestTrack(cam.position.x,cam.position.z,game.previousT);
+      assert.ok(Math.abs(local.lateral)<RAIL_INNER_OFFSET-1.5,
+        'camera center cannot pass through newly upright rail face');
+      assert.ok(cam.position.y>=local.y+2.65,
+        'camera should clear uphill track surface while following');
+    }
+  }
+  pass('chase and near camera upright-rail clearance','two sides, both modes');
+
   for(const pad of BOOST_PAD_T){
     // The existing original physics smoke exercises a physical forward
     // crossing of pad 0.16; no score state is synthesized here.
@@ -115,6 +134,7 @@ try{
   game.start();
   while(game.phase==='countdown')game.update(1/60,idle);
   let steps=0,maxLateral=0,impacts=0,missed=0;
+  let earnedGates=0,lastGate=0,padEvents=0,previousPad=false;
   const maxSteps=60*460;
   let lastImpact=0;
   while(game.phase==='racing'&&steps++<maxSteps){
@@ -135,6 +155,10 @@ try{
     if(game.impact>.95&&lastImpact<=.95)impacts++;
     lastImpact=game.impact;
     if(game.snapshot().trackWarning==='missed-checkpoint')missed++;
+    if(game.checkpoints>lastGate)earnedGates+=game.checkpoints-lastGate;
+    lastGate=game.checkpoints;
+    if(game.padSurge&&!previousPad)padEvents++;
+    previousPad=game.padSurge;
   }
   assert.equal(game.reason,'complete',
     'faster pilot must physically finish three forward laps with real race scoring');
@@ -143,10 +167,14 @@ try{
   assert.equal(game.recoveryCount,0,'fast pilot must not teleport or bypass gates');
   assert.ok(game.shield>0&&maxLateral<RAIL_INNER_OFFSET,
     'fast drive must retain shield and remain inside canonical rail face');
+  assert.equal(earnedGates,9,'three forward quarter gates must be earned per lap');
+  assert.ok(padEvents>=7 && padEvents<=9,
+    'most source boost strips should trigger on physically earned approaches');
   pass('faster legitimate three-lap race',
     'steps='+steps+'; laps='+game.lapTimes.map(t=>t.toFixed(2)).join('/')+
     's; max lateral='+maxLateral.toFixed(2)+
-    'm; impacts='+impacts+'; missed warning frames='+missed);
+    'm; impacts='+impacts+'; gates='+earnedGates+'; pads='+padEvents+
+    '; missed warning frames='+missed);
   console.log('I07 '+passed+' original-engine/geometry checks PASSED');
 }finally{
   await rm(home,{recursive:true,force:true});
