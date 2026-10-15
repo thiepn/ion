@@ -514,6 +514,10 @@ export function App() {
                 'GO · FOLLOW S1'}</strong>
               {recentEvent && <span>{formatTime(recentEvent.time)}
                 {recentEvent.kind==='lap' && recentEvent.personalBest?' · PERSONAL BEST':''}
+                {recentEvent.kind==='lap' && data.completedLapChallenges[recentEvent.lap-1]?.clean?
+                  ' · CLEAN LAP':''}
+                {recentEvent.kind==='lap'?
+                  ' · '+(data.completedLapChallenges[recentEvent.lap-1]?.pads??0)+'/3 PADS':''}
                 {recentEvent.kind==='sector'?' · NEXT '+(recentEvent.sector===3?'FINISH':'S'+(recentEvent.sector+1)):''}
               </span>}
             </div>
