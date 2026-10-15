@@ -1,4 +1,4 @@
-import { CIRCUIT_SECTIONS } from '../track';
+import { CIRCUIT_SECTIONS, TRACK_LENGTH } from '../track';
 
 /**
  * Five decorative identities sampled from the EXISTING 1,820.8m Nightshift
@@ -25,4 +25,9 @@ export function sectionVisualAt(t:number){
     return delta(candidate.t)<delta(best.t)?candidate:best;
   });
   return {...section,...SECTION_PALETTE[section.name]};
+}
+
+/** Visual advance markings only, not physical boost-pad scoring authority. */
+export function boostApproachT(padT:number,metersBefore:number){
+  return ((padT-metersBefore/TRACK_LENGTH)%1+1)%1;
 }
