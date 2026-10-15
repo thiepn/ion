@@ -466,6 +466,8 @@ export class RaceEngine {
     if(this.phase==='racing'||this.phase==='countdown'){
       this.phase='paused';
       this.isBoosting=false;
+      // Resuming later must not replay an already-earned checkpoint banner.
+      this.raceEvent=null;
       // Do not restart a paused high-speed bend with a stale travel angle.
       // The original countdown already freezes distance and race time.
       this.motionHeading=this.heading;
