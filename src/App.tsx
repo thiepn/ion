@@ -36,7 +36,10 @@ function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'c
   return (
     <div className="meter">
       <div className="meter-heading"><span>{label}</span><b>{amount}%</b></div>
-      <div className="meter-track"><div className={`meter-fill ${accent||'blue'}`} style={{width:`${amount}%`}}/></div>
+      <div className="meter-track" role="meter" aria-label={label}
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={amount}>
+        <div className={`meter-fill ${accent||'blue'}`} style={{width:`${amount}%`}}/>
+      </div>
     </div>
   );
 }
@@ -224,6 +227,42 @@ export function App() {
   const disconnectedController=useRef(false);
   const [rendererEpoch,setRendererEpoch]=useState(0);
   const [help,setHelp]=useState(false);
+  const helpDialogRef=useRef<HTMLElement|null>(null);
+  useEffect(()=>{
+    if(!help)return;
+    const previous=document.activeElement instanceof HTMLElement?
+      document.activeElement:null;
+    const modal=helpDialogRef.current;
+    const close=modal?.querySelector<HTMLButtonElement>('[data-close-manual]');
+    close?.focus();
+    const onKeys=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setHelp(false);
+        return;
+      }
+      if(event.key!=='Tab'||!modal)return;
+      const focusables=Array.from(modal.querySelectorAll<HTMLElement>(
+        'button:not([disabled]),select:not([disabled]),a[href],input:not([disabled])'
+      ));
+      if(focusables.length===0){event.preventDefault();return;}
+      const first=focusables[0],last=focusables[focusables.length-1];
+      if(event.shiftKey&&(document.activeElement===first||
+        !modal.contains(document.activeElement))){
+        event.preventDefault();last.focus();
+      }else if(!event.shiftKey&&(document.activeElement===last||
+        !modal.contains(document.activeElement))){
+        event.preventDefault();first.focus();
+      }
+    };
+    // Capture Escape before the game controller's global key handler.
+    document.addEventListener('keydown',onKeys,true);
+    return ()=>{
+      document.removeEventListener('keydown',onKeys,true);
+      if(previous?.isConnected)previous.focus({preventScroll:true});
+    };
+  },[help]);
   const [showFirstRaceHint,setShowFirstRaceHint]=useState(()=>{
     try{return localStorage.getItem('ion-i08-first-race-guide')!=='dismissed';}
     catch{return true;}
@@ -719,10 +758,10 @@ export function App() {
 
       {help && (
         <div className="help-scrim" role="presentation">
-          <section className="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
+          <section ref={helpDialogRef} className="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" aria-describedby="help-description">
             <div className="menu-rule">PILOT MANUAL / INPUT SYSTEM</div>
             <h2 id="help-title">HOW TO RACE</h2>
-            <p>Follow the illuminated deck and the highlighted amber quarter-gate beacon, then the finish line after S3. Each of the three laps requires S1, S2 and S3 in order. Amber roadside braking boards warn of tighter bends; the on-screen curve speed is advice, not automatic braking. Guardrail impacts damage your shield.</p>
+            <p id="help-description">Follow the illuminated deck and the highlighted amber quarter-gate beacon, then the finish line after S3. Each of the three laps requires S1, S2 and S3 in order. Amber roadside braking boards warn of tighter bends; the on-screen curve speed is advice, not automatic braking. Guardrail impacts damage your shield.</p>
             <dl>
               <div><dt>ACCELERATE</dt><dd>W / ↑</dd></div>
               <div><dt>BRAKE</dt><dd>S / ↓</dd></div>
@@ -745,7 +784,7 @@ export function App() {
             </div>
             <p>Gamepad left stick, D-pad left/right, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery sends you to the last earned quarter gate (or the start grid before S1), costing 5 seconds, 8 shield and 25 boost. It cannot award a missed checkpoint.</p>
             <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
-            <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
+            <button className="cta" data-close-manual type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
         </div>
       )}

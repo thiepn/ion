@@ -18,5 +18,7 @@ node scripts/i08-guidance-smoke.mjs
 node scripts/i09-race-experience-smoke.mjs
 # I10 verifies real earned pad/clean lap and strict personal-best claims.
 node scripts/i10-authentic-replayability.mjs
+# I11 checks consolidated CSS, real accessible UI semantics and contrast.
+node scripts/i11-visual-source-smoke.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build
