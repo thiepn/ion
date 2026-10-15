@@ -1,5 +1,5 @@
 import { MathUtils, PerspectiveCamera, Vector3, type Camera } from 'three';
-import { nearestTrack, trackAt } from '../track';
+import { nearestTrack, RAIL_INNER_OFFSET, trackAt } from '../track';
 import type { RaceEngine } from '../simulation';
 
 type CameraMode='CHASE'|'NEAR';
@@ -95,7 +95,15 @@ export class ChaseRig {
     if(!orbit){
       const ground=nearestTrack(camera.position.x,camera.position.z,game.previousT);
       if(ground.distance<25){
-        camera.position.y=Math.max(camera.position.y,ground.y+2.15);
+        // The old clamp handled height only; on a tightening bend the chase
+        // camera could interpolate *through* the newly upright side wall.
+        // Keep the camera optical center on the inner deck and above it.
+        const lateralLimit=RAIL_INNER_OFFSET-1.7;
+        const lateral=Math.max(-lateralLimit,Math.min(lateralLimit,ground.lateral));
+        const correction=lateral-ground.lateral;
+        camera.position.x+=ground.rightX*correction;
+        camera.position.z+=ground.rightZ*correction;
+        camera.position.y=Math.max(camera.position.y,ground.y+2.7);
       }
     }
     this.focus.lerp(tmpLook,blend);
