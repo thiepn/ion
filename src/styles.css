@@ -579,3 +579,66 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
 @media (prefers-reduced-motion:reduce) {
   .cta,.secondary-action,.small-button,.option-button {transition:none}
 }
+
+/* I12: native, source-driven telemetry; no duplicate HUD or score layer. */
+.hud-gates {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  width:clamp(130px,17vw,208px);
+  gap:4px;
+  margin:4px 0 1px;
+}
+.hud-gate {
+  border-bottom:2px solid #466975;
+  padding:4px 2px 5px;
+  color:#9bbbc4;
+  text-align:center;
+  font:650 10px/1.1 var(--ion-data);
+  letter-spacing:.02em;
+}
+.hud-gate.earned {border-bottom-color:var(--ion-cyan);color:#d1fbf1}
+.hud-gate.next {border-bottom-color:var(--ion-coral);color:#ffdebd;background:rgba(48,37,28,.64)}
+.gate-distance {font-variant-numeric:tabular-nums}
+.minimap-progress {
+  height:4px;margin-top:7px;background:#274350;
+  border:1px solid #476873;
+  overflow:hidden;
+}
+.minimap-progress span {
+  display:block;height:100%;background:var(--ion-cyan);
+  transition:width .12s linear;
+}
+.minimap-heading strong {color:var(--ion-coral);font-size:10px}
+.minimap-foot strong {font-variant-numeric:tabular-nums}
+.race-bottom {pointer-events:none}
+.status-meters,.speed-area {min-width:0}
+.speed-number {font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+@media(max-width:680px) and (orientation:portrait) {
+  .hud-gates {width:clamp(104px,36vw,136px);gap:3px;margin:2px 0}
+  .hud-gate {padding:3px 0;font-size:9px}
+  .race-top .split-hud {display:block;font-size:9px;line-height:1.2}
+  .minimap {
+    display:block;top:clamp(136px,23vh,170px);
+    right:12px;width:100px;padding:7px 7px 6px;
+  }
+  .minimap svg {display:none}
+  .minimap-heading,.minimap-foot {font-size:8px;gap:3px;letter-spacing:0}
+  .minimap-heading strong,.minimap-foot strong {font-size:9px}
+  .minimap-progress {height:5px;margin-top:6px}
+}
+@media (orientation:landscape) and (max-height:540px) {
+  .hud-gates {width:clamp(108px,18vw,148px);margin:1px 0}
+  .hud-gate {font-size:8px;padding:2px 0 3px}
+  .minimap {
+    display:block;top:clamp(82px,21vh,104px);
+    right:max(14px,env(safe-area-inset-right));
+    width:118px;padding:7px;
+  }
+  .minimap svg {display:none}
+  .minimap-heading,.minimap-foot {font-size:8px}
+  .minimap-progress {height:5px;margin-top:4px}
+  .race-top .gate-distance {font-size:9px;line-height:1.15}
+}
+@media (prefers-reduced-motion:reduce) {
+  .minimap-progress span {transition:none}
+}

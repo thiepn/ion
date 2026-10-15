@@ -33,12 +33,13 @@ function formatTime(seconds: number) {
 }
 
 function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'coral'|'blue'}) {
+  const level=Math.max(0,Math.min(100,Math.round(amount)));
   return (
     <div className="meter">
-      <div className="meter-heading"><span>{label}</span><b>{amount}%</b></div>
+      <div className="meter-heading"><span>{label}</span><b>{level}%</b></div>
       <div className="meter-track" role="meter" aria-label={label}
-        aria-valuemin={0} aria-valuemax={100} aria-valuenow={amount}>
-        <div className={`meter-fill ${accent||'blue'}`} style={{width:`${amount}%`}}/>
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={level}>
+        <div className={`meter-fill ${accent||'blue'}`} style={{width:`${level}%`}}/>
       </div>
     </div>
   );
@@ -430,8 +431,10 @@ export function App() {
   const approach=(data.phase==='racing' && !data.trackWarning &&
     (!showFirstRaceHint||data.elapsed>=17) && data.speedKmh>30)?
     upcomingApproach(data.progress,data.speedKmh):null;
-  const showCoach=showFirstRaceHint && (data.phase==='countdown'||
-    (data.phase==='racing'&&data.elapsed<17));
+  // A wrong-way or missed-checkpoint alert takes priority over onboarding,
+  // keeping contradictory guidance from occupying the same live viewport.
+  const showCoach=!data.trackWarning && showFirstRaceHint &&
+    (data.phase==='countdown'||(data.phase==='racing'&&data.elapsed<17));
   const recentEvent=data.phase==='racing' && data.raceEvent &&
     data.elapsed-data.raceEvent.elapsed>=0 &&
     data.elapsed-data.raceEvent.elapsed<3.1?data.raceEvent:null;
@@ -565,13 +568,25 @@ export function App() {
             <div className="race-value">
               <span className="eyebrow">CURRENT LAP</span>
               <strong>{String(data.lap).padStart(2,'0')}<span className="divider-text"> / 0{data.laps}</span></strong>
-              <span className="quiet">SECTOR {Math.min(data.nextGate,4)} / 4</span>
+              <div className="hud-gates" role="group"
+                aria-label={`Earned sector gates: ${data.nextGate-1} of 3. Next required: ${data.nextGateLabel}`}>
+                {['S1','S2','S3','FIN'].map((gate,index)=>{
+                  const number=index+1;
+                  const isEarned=index<3 && number<data.nextGate;
+                  const isNext=number===data.nextGate;
+                  return <span key={gate} className={
+                    'hud-gate'+(isEarned?' earned':isNext?' next':'')
+                  } aria-label={gate+(isEarned?' completed':isNext?' next':' pending')}>
+                    {gate}
+                  </span>;
+                })}
+              </div>
               <span className="quiet gate-distance" aria-label="Distance along track to next required gate">
                 NEXT {data.nextGateLabel} · {data.distanceToGateM} M
               </span>
               <span className="quiet split-hud">{data.lastSectorTime===null?
-                'FIRST SPLIT PENDING':
-                `LAST S${data.lastSector} · ${formatTime(data.lastSectorTime)}`}</span>
+                'S1 SPLIT PENDING':
+                `S${data.lastSector} SPLIT · ${formatTime(data.lastSectorTime)}`}</span>
               <span className="quiet replay-live">THIS LAP · {data.currentLapClean?'CLEAN SO FAR':'RAIL/RECOVERY RECORDED'}
                 {' · '}{data.currentLapPads}/3 PADS</span>
             </div>
@@ -596,7 +611,7 @@ export function App() {
               {data.recoveryCount>0&&<span className="quiet recovery-count">TRACK RECOVERIES: {data.recoveryCount}</span>}
             </div>
             <div className="speed-area">
-              <div className="speed-number mono">{data.speedKmh}</div>
+              <div className="speed-number mono" aria-label={`Speed ${data.speedKmh} kilometers per hour`}>{data.speedKmh}</div>
               <div className="speed-unit">KM/H</div>
               <div className="speed-caption">{data.isBoosting?'BOOST ACTIVE':
                 data.padSurge?'BOOST PAD SURGE':'ANTI-GRAVITY DRIVE'}</div>

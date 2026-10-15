@@ -20,5 +20,7 @@ node scripts/i09-race-experience-smoke.mjs
 node scripts/i10-authentic-replayability.mjs
 # I11 checks consolidated CSS, real accessible UI semantics and contrast.
 node scripts/i11-visual-source-smoke.mjs
+# I12 qualifies original earned gates and small-screen HUD source rules.
+node scripts/i12-hud-telemetry-smoke.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build

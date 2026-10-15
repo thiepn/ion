@@ -91,7 +91,9 @@ assert.ok(foundation.includes('@media (prefers-reduced-motion:reduce)'));
 pass('scroll-safe menus/results, numeric alignment, keyboard focus and reduced motion');
 
 assert.ok(markup.includes('viewport-fit=cover'));
-assert.ok(app.includes('role="meter"')&&app.includes('aria-valuenow={amount}'));
+assert.ok(app.includes('role="meter"')&&
+  (app.includes('aria-valuenow={level}')||app.includes('aria-valuenow={amount}')),
+  'source meter must retain an explicit accessible numeric value');
 assert.ok(app.includes('aria-modal="true"')&&app.includes('aria-describedby="help-description"'));
 assert.ok(app.includes('document.addEventListener(\'keydown\',onKeys,true)'));
 assert.ok(app.includes('if(previous?.isConnected)previous.focus'));
