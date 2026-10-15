@@ -185,6 +185,16 @@ export function railWall(side: -1 | 1): BufferGeometry {
 }
 
 /**
+ * RaceEngine remains authoritative for gate credit. Visual beacons index
+ * FINISH=0, then physical S1=.25, S2=.50 and S3=.75. Never illuminate the
+ * grid as 'next' before the three forward quarter crossings are earned.
+ */
+export function requiredBeaconIndex(earnedQuarterGates:number):0|1|2|3 {
+  const earned=Math.max(0,Math.min(3,Math.floor(earnedQuarterGates)));
+  return earned===3?0:(earned+1) as 1|2|3;
+}
+
+/**
  * Read-only driving advice sampled from the same closed physical spline as
  * checkpoint scoring and the minimap. This NEVER changes physics, sector
  * rights, positions, throttle or race results.
