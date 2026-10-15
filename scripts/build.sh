@@ -28,5 +28,7 @@ node scripts/i13-menu-lifecycle-smoke.mjs
 node scripts/i14-craft-showcase-smoke.mjs
 # I15 runs true spline-derived district/boost/rail clearance/source asset checks.
 node scripts/i15-environment-smoke.mjs
+# I16 plays actual source-earned events into a simulated WebAudio device.
+node scripts/i16-audio-feedback-smoke.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build
