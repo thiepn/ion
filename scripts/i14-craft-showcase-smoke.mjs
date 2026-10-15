@@ -65,6 +65,13 @@ try{
     assert.ok(projected.x>0.04 && projected.x<.85,
       'wide garage vehicle should be framed to the right of menu, '+view);
     assert.ok(Math.abs(projected.y)<.7,'garage craft must stay vertically visible');
+    const expected=game.heading+(view==='SIDE'?Math.PI/2:
+      view==='REAR'?Math.PI:.82);
+    const actual=Math.atan2(camera.position.x-game.position.x,
+      camera.position.z-game.position.z);
+    const yawError=Math.atan2(Math.sin(actual-expected),Math.cos(actual-expected));
+    assert.ok(Math.abs(yawError)<.000001,
+      'view must be relative to original craft yaw, not the world axes');
     positions.push(camera.position.clone());
   }
   for(let i=0;i<positions.length;i++)
