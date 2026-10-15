@@ -183,3 +183,56 @@ export function railWall(side: -1 | 1): BufferGeometry {
   result.computeVertexNormals();
   return result;
 }
+
+/**
+ * RaceEngine remains authoritative for gate credit. Visual beacons index
+ * FINISH=0, then physical S1=.25, S2=.50 and S3=.75. Never illuminate the
+ * grid as 'next' before the three forward quarter crossings are earned.
+ */
+export function requiredBeaconIndex(earnedQuarterGates:number):0|1|2|3 {
+  const earned=Math.max(0,Math.min(3,Math.floor(earnedQuarterGates)));
+  return earned===3?0:(earned+1) as 1|2|3;
+}
+
+/**
+ * Read-only driving advice sampled from the same closed physical spline as
+ * checkpoint scoring and the minimap. This NEVER changes physics, sector
+ * rights, positions, throttle or race results.
+ *
+ * A positive world yaw follows the screen-left bend convention of the
+ * original chase camera (screen right is negative world yaw).
+ */
+export type ApproachAdvice = {
+  direction:'LEFT'|'RIGHT';
+  distanceM:number;
+  suggestedKmh:number;
+  brakeNow:boolean;
+};
+export function upcomingApproach(t:number,speedKmh:number):ApproachAdvice|null {
+  if(!Number.isFinite(t)||!Number.isFinite(speedKmh))return null;
+  const speed=Math.max(0,speedKmh)/3.6;
+  const lookahead=Math.max(125,Math.min(440,speed*4.8));
+  const headingSpan=14/TRACK_LENGTH;
+  const at=(deltaM:number)=>((t+deltaM/TRACK_LENGTH)%1+1)%1;
+  for(let distanceM=24;distanceM<=lookahead;distanceM+=12){
+    const pivot=at(distanceM);
+    const before=headingAt((pivot-headingSpan+1)%1);
+    const after=headingAt((pivot+headingSpan)%1);
+    const yaw=Math.atan2(Math.sin(after-before),Math.cos(after-before));
+    if(Math.abs(yaw)<.000001)continue;
+    const radius=28/Math.abs(yaw);
+    if(radius>115)continue; // only consequential braking/corner sections
+    const suggestedKmh=Math.round(
+      Math.max(75,Math.min(155,3.6*Math.sqrt(10.5*radius)))/5)*5;
+    const suggestedSpeed=suggestedKmh/3.6;
+    const brakingDistance=Math.max(0,
+      (speed*speed-suggestedSpeed*suggestedSpeed)/(2*7.5))+speed*.65;
+    return {
+      direction:yaw>0?'LEFT':'RIGHT',
+      distanceM:Math.round(distanceM),
+      suggestedKmh,
+      brakeNow:speedKmh>suggestedKmh+15&&distanceM<=brakingDistance+18,
+    };
+  }
+  return null;
+}

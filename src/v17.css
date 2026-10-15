@@ -364,3 +364,88 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   font:400 12px/1.5 'Inter',system-ui,sans-serif;
   color:#b8d0d3;
 }
+
+/* I08: first-time driving guidance and physically sourced bend advice.
+   Fixed small surfaces leave the craft, minimap, HUD and thumb zones clear.
+   No second on-screen race engine, tutorial overlay or CSS override layer. */
+.first-race-brief,.approach-advice {
+  position:absolute;
+  z-index:5;
+  top:clamp(148px,22vh,190px);
+  left:clamp(20px,3vw,45px);
+  box-sizing:border-box;
+  width:min(265px,29vw);
+  padding:11px 13px;
+  background:rgba(8,23,31,.87);
+  border-left:2px solid #78d7d1;
+  border-radius:1px;
+  pointer-events:none;
+  color:#e7f5f3;
+}
+.first-race-brief strong,.approach-advice strong {
+  display:block;
+  font:750 12px/1.2 'Space Grotesk',system-ui,sans-serif;
+  letter-spacing:.04em;
+}
+.first-race-brief p {
+  margin:7px 0;
+  color:#c8dfde;
+  font:450 11px/1.5 'Inter',system-ui,sans-serif;
+}
+.first-race-brief button {
+  display:block;
+  margin-top:5px;
+  border:1px solid #79afb1;
+  border-radius:1px;
+  min-height:36px;
+  padding:5px 11px;
+  background:rgba(10,36,42,.9);
+  color:#dff5f3;
+  font:650 10px 'Inter',sans-serif;
+  pointer-events:auto;
+  cursor:pointer;
+}
+.first-race-brief button:focus-visible { outline:3px solid white;outline-offset:2px; }
+.approach-advice {
+  width:max-content;
+  max-width:min(275px,35vw);
+  border-left-color:#82dccc;
+}
+.approach-advice strong { font-size:17px; }
+.approach-advice span {
+  display:block;
+  margin-top:3px;
+  font:550 10px/1.4 'IBM Plex Mono',monospace;
+  letter-spacing:.02em;
+  color:#cbe5df;
+}
+.approach-advice.brake-now { border-left-color:#ffae77; }
+.approach-advice.brake-now strong { color:#ffd3ac; }
+@media(max-width:680px) and (orientation:portrait) {
+  .first-race-brief,.approach-advice {
+    top:157px;left:14px;width:min(210px,60vw);
+    max-width:min(210px,60vw);padding:9px 10px;
+  }
+  .first-race-brief p { font-size:10px;line-height:1.4; }
+  .first-race-brief strong {font-size:11px;}
+  .approach-advice strong {font-size:14px;}
+  .approach-advice span {font-size:9px;}
+}
+@media(orientation:landscape) and (max-height:540px) {
+  .first-race-brief,.approach-advice {
+    top:104px;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(210px,34vw);
+    max-width:min(210px,34vw);
+    padding:7px 9px;
+  }
+  .first-race-brief p {font-size:9px;line-height:1.2;margin:4px 0;}
+  .first-race-brief strong {font-size:9px;}
+  .first-race-brief button {min-height:28px;font-size:9px;margin-top:3px;}
+  .approach-advice strong {font-size:12px;}
+  .approach-advice span {font-size:8px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .first-race-brief,.approach-advice {transition:none;animation:none;}
+}

@@ -4,7 +4,7 @@ import {
   Color, DoubleSide, DynamicDrawUsage, InstancedMesh,
   Matrix4, Object3D, Vector3,
 } from 'three';
-import { trackAt, ROAD_HALF_WIDTH, TRACK_LENGTH } from '../track';
+import { requiredBeaconIndex, trackAt, ROAD_HALF_WIDTH, TRACK_LENGTH } from '../track';
 import type { RaceEngine } from '../simulation';
 
 type Transform = { pos: Vector3; yaw: number; scale: [number, number, number] };
@@ -43,10 +43,28 @@ function RibbonInstances({data,color}: {data:Matrix4[];color:string}) {
 export function RaceLineGuidance({game,quality}:{
   game:RaceEngine; quality:'QUALITY'|'PERFORMANCE';
 }) {
-  const {shoulders,cornerLights,brakeBoards}=useMemo(()=>{
+  const {shoulders,cornerLights,brakeBoards,forwardChevrons}=useMemo(()=>{
     const shoulders:Transform[]=[];
     const cornerLights:Transform[]=[];
     const brakeBoards:Transform[]=[];
+    const forwardChevrons:Transform[]=[];
+    // Surface chevrons show the actual spline travel direction and cannot
+    // be confused with checkpoint scoring or override player steering.
+    // Place them in the inner lanes, clear of the rails/boost strips.
+    for(let i=0;i<20;i++){
+      const t=(i+.12)/20;
+      const {position,right,tangent}=trackAt(t);
+      const yaw=Math.atan2(tangent.x,tangent.z);
+      for(const side of [-1,1]){
+        forwardChevrons.push({
+          pos:new Vector3(
+            position.x-tangent.x*.45+right.x*side*.46,
+            position.y+.20,
+            position.z-tangent.z*.45+right.z*side*.46),
+          yaw:yaw-side*.52,scale:[.24,.045,2.3],
+        });
+      }
+    }
     const density=quality==='QUALITY'?150:80;
     for(let i=0;i<density;i++){
       const t=(i+.35)/density;
@@ -96,6 +114,7 @@ export function RaceLineGuidance({game,quality}:{
       shoulders:buildMatrices(shoulders),
       cornerLights:buildMatrices(cornerLights),
       brakeBoards:buildMatrices(brakeBoards),
+      forwardChevrons:buildMatrices(forwardChevrons),
     };
   },[quality]);
 
@@ -116,7 +135,7 @@ export function RaceLineGuidance({game,quality}:{
     });
     return buildMatrices(transforms);
   },[]);
-  const previous=useRef(-1);
+  const previous=useRef('');
   const lastUpdate=useRef(0);
   useEffect(()=>{
     const mesh=gateRef.current;
@@ -125,21 +144,27 @@ export function RaceLineGuidance({game,quality}:{
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     mesh.instanceMatrix.needsUpdate=true;
     mesh.computeBoundingSphere();
-    previous.current=-1;
+    previous.current='';
   },[gateTransforms]);
   useFrame(({clock})=>{
     const mesh=gateRef.current;
     if(!mesh || clock.elapsedTime-lastUpdate.current<.13)return;
     lastUpdate.current=clock.elapsedTime;
-    const active=game.phase==='racing'||game.phase==='countdown';
-    // Four beacon pairs correspond to the upcoming sectors 0..3. At the
-    // start of the run sector 0, not sector 1, must be the next target.
-    const next=active?Math.min(3,game.checkpoints):0;
-    if(previous.current===next)return;
-    previous.current=next;
+    const active=game.phase==='racing'||game.phase==='countdown'||game.phase==='paused';
+    // The index 0 is the FINISH beacon, indexes 1..3 are the quarter
+    // gates. At the grid the required marker is .25 (index 1), not the
+    // starting line; once three gates are earned the target is FINISH (0).
+    // Original RaceEngine.checkpoints is the sole owner of those credits.
+    const next=requiredBeaconIndex(game.checkpoints);
+    const key=String(active)+':'+next+':'+game.checkpoints;
+    if(previous.current===key)return;
+    previous.current=key;
     for(let i=0;i<8;i++){
       const sector=Math.floor(i/2);
-      mesh.setColorAt(i,new Color(sector===next?'#ffa56d':sector<next?'#74e0ce':'#456f80'));
+      const earned=sector>0&&sector<=game.checkpoints;
+      mesh.setColorAt(i,new Color(
+        active&&sector===next?'#ffa56d':earned?'#74e0ce':'#456f80'
+      ));
     }
     if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   });
@@ -147,7 +172,8 @@ export function RaceLineGuidance({game,quality}:{
     <group>
       <RibbonInstances data={shoulders} color="#58a9c0"/>
       <RibbonInstances data={cornerLights} color="#eda371"/>
-      <RibbonInstances data={brakeBoards} color="#d7e2e4"/>
+      <RibbonInstances data={brakeBoards} color="#f0b48d"/>
+      <RibbonInstances data={forwardChevrons} color="#79e3d2"/>
       <instancedMesh ref={gateRef} args={[undefined,undefined,gateTransforms.length]} castShadow={false}>
         <boxGeometry args={[1,1,1]}/>
         <meshBasicMaterial color="#ffffff" toneMapped={false}/>
