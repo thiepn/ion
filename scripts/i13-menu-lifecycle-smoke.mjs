@@ -34,7 +34,8 @@ try{
   const appHtml=renderToStaticMarkup(React.createElement(App));
   assert.ok(appHtml.includes('START TIME TRIAL'));
   assert.ok(appHtml.includes('CUSTOMIZE HOVERCRAFT'));
-  assert.ok(appHtml.includes('CONTROLS & HOW TO PLAY'));
+  assert.match(appHtml,/CONTROLS (?:&amp;|&) HOW TO PLAY/,
+    'actual React HTML should expose the pilot manual navigation');
   assert.ok(appHtml.includes('01 / NIGHTSHIFT I06'));
   assert.ok(appHtml.includes('01:52.500'),
     'menu best lap must reflect actual saved original record');
