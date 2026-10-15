@@ -268,7 +268,7 @@ h1,h2,p{margin-top:0}
 /* V7: source-backed sector feedback and mobile track rescue. */
 .split-hud{font-variant-numeric:tabular-nums;color:#eac49e!important;font-size:10px;white-space:nowrap}
 .recovery-count{font-size:9px;color:#f6b18a!important;letter-spacing:.06em}
-.secondary-action:disabled,
+.secondary-action:disabled{opacity:.38;cursor:not-allowed}
 .dialog-panel>.secondary-action>span{font:600 10px 'IBM Plex Mono',monospace;color:#eba87f;white-space:nowrap}
 @media(max-width:580px){
  .race-top .split-hud{font-size:9px;margin-top:3px}
