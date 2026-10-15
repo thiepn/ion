@@ -747,3 +747,39 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
 @media(prefers-reduced-motion:reduce) {
   .garage-view-buttons button {transition:none}
 }
+
+/* I16: original optional synthesized sound level in existing pilot settings. */
+.audio-mix-setting{
+  display:grid;gap:6px;
+  max-width:360px;
+  margin:10px 0;
+  padding:9px 0;
+  border-top:1px solid rgba(126,178,187,.24);
+}
+.audio-mix-setting label{
+  color:var(--ion-muted);
+  font:700 11px/1.35 var(--ion-data);
+  letter-spacing:.045em;
+}
+.audio-mix-setting select{
+  min-height:44px;
+  width:min(100%,220px);
+  padding:8px 13px;
+  background:#112736;
+  color:var(--ion-ink);
+  border:1px solid var(--ion-border);
+  border-radius:1px;
+  font:650 13px var(--ion-data);
+}
+.audio-mix-setting select:focus-visible{
+  outline:3px solid var(--ion-focus);
+  outline-offset:2px;
+}
+.audio-mix-setting small{
+  color:var(--ion-muted);
+  font:500 11px/1.5 var(--ion-body);
+}
+@media(orientation:landscape) and (max-height:540px){
+  .audio-mix-setting{gap:4px;margin:6px 0;padding:5px 0}
+  .audio-mix-setting small{font-size:10px}
+}
