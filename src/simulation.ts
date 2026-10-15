@@ -66,6 +66,8 @@ export class InputController {
   onGamepadDisconnect?: () => void;
   onGamepadConnect?: () => void;
   onKeyAction?: (action: 'pause' | 'reset' | 'camera' | 'recover') => void;
+  /** Original authoritative race phase; menu buttons retain Space activation. */
+  isRaceActive?: () => boolean;
 
   private readGamepad():Gamepad|null {
     let pads:(Gamepad|null)[]=[];
@@ -122,9 +124,15 @@ export class InputController {
     if(element instanceof HTMLElement &&
       (element.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(element.tagName)))
       return;
-    // Escape remains available while a focused pause/menu button has focus.
-    if(element instanceof HTMLElement && element.tagName==='BUTTON' && code!=='Escape')
-      return;
+    // Clicking SOUND, CAMERA or PAUSE leaves a <button> focused. Previously
+    // *every* driving key except Escape was then discarded, so keyboard
+    // driving silently stopped until the pilot clicked the canvas. During
+    // racing, preserve driving keys even with a header button focused.
+    // In menus/pause keep native button Space/Enter activation intact.
+    const focusedButton=element instanceof HTMLElement && element.tagName==='BUTTON';
+    const racing=this.isRaceActive?.()===true;
+    if(focusedButton && !racing && code!=='Escape')return;
+    if(focusedButton && racing && code==='Enter')return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     if(e.ctrlKey || e.altKey || e.metaKey)return;
     if (!e.repeat) {
@@ -135,7 +143,14 @@ export class InputController {
     }
     this.held.add(code);
   };
-  private onKeyUp = (e: KeyboardEvent) => this.held.delete(e.code);
+  private onKeyUp = (e: KeyboardEvent) => {
+    // Do not click the focused SOUND/CAMERA button as a side-effect of
+    // releasing the boost key. Enter remains the accessible activation key.
+    if(e.code==='Space' && this.isRaceActive?.() &&
+      e.target instanceof HTMLElement && e.target.tagName==='BUTTON')
+      e.preventDefault();
+    this.held.delete(e.code);
+  };
   private onBlur = () => this.clear();
   attach() {
     if (this.attached) return;
@@ -151,6 +166,7 @@ export class InputController {
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
     this.clear();
+    this.isRaceActive=undefined;
     this.gamepadIndex=null;
     this.gamepadUsedForDriving=false;
     this.requireNeutralGamepad=true;
