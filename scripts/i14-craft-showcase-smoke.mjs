@@ -6,13 +6,12 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {mkdtemp,rm} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 import {Color,MeshStandardMaterial,PerspectiveCamera,Texture,Vector3} from 'three';
 
-const tmp=await mkdtemp(path.join(tmpdir(),'ion-i14-'));
+const tmp=await mkdtemp(path.join(process.cwd(),'.i14-qualification-'));
 const pass=(label,info='')=>console.log('PASS I14 '+label+(info?' — '+info:''));
 try{
   for(const [entry,out] of [
