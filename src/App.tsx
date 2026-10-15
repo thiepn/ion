@@ -541,6 +541,12 @@ export function App() {
             <div className="status-meters">
               <Meter label="SHIELD" amount={data.shield}/>
               <Meter label="BOOST" amount={data.boost} accent="coral"/>
+              {data.phase==='racing' && (data.impact>.55 || data.padSurge || data.shield<=25) && (
+                <span className="race-condition" aria-live="off">
+                  {data.impact>.55?('RAIL IMPACT · SHIELD '+data.shield+'%'):
+                    data.padSurge?'BOOST PAD · SURGE EARNED':'SHIELD CRITICAL'}
+                </span>
+              )}
               <span className="race-note">W / ↑ ACCELERATE · A D / ← → STEER · S / ↓ BRAKE · SPACE BOOST</span>
               {data.recoveryCount>0&&<span className="quiet recovery-count">TRACK RECOVERIES: {data.recoveryCount}</span>}
             </div>
