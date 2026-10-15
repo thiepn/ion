@@ -104,7 +104,7 @@
   .race-bottom { bottom:232px; }
   .status-meters { width:min(165px,29vw); }
   .speed-number { font-size:clamp(42px,7vw,70px); }
-  .minimap { display:none; }
+  /* I12 compact source-backed map is positioned in the narrower media rules. */
 }
 
 /* Portrait phones: reserve central view for the craft and road. */
@@ -126,7 +126,7 @@
   .race-value { gap:2px; }
   .eyebrow { font-size:9px; }
   .race-top .gate-distance { font-size:9px;max-width:43vw;white-space:normal;line-height:1.15; }
-  .race-top .split-hud { display:none; }
+  .race-top .split-hud { display:block; }
   .race-bottom { bottom:232px;left:16px;right:16px; }
   .status-meters { width:110px;gap:8px; }
   .meter-heading { font-size:9px; }
@@ -149,7 +149,7 @@
   .race-top { top:45px;left:16px;right:16px; }
   .race-value strong { font-size:27px; }
   .race-time { margin-right:0; }
-  .race-top .gate-distance,.race-top .split-hud { display:none; }
+  .race-top .split-hud { display:none; }
   .race-bottom { bottom:155px;left:18px;right:18px; }
   .status-meters { width:140px; }
   .speed-number { font-size:44px; }
@@ -176,7 +176,7 @@
   .race-bottom { bottom:229px; }
   .touch-zone { height:139px; }
   .touch-recover { top:-53px;height:44px; }
-  .race-top .quiet:not(.gate-distance) { display:none; }
+  .race-top .quiet:not(.gate-distance):not(.split-hud) { display:none; }
 }
 @media (prefers-reduced-motion:reduce) {
   .small-button,.touch-control,.cta,.secondary-action { transition:none; }
