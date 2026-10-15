@@ -218,10 +218,6 @@ export function App() {
     input.setStickDeadzone(next);
     setStickDeadzone(input.getStickDeadzone());
   },[input]);
-  const cycleStickDeadzone=useCallback(()=>{
-    const index=STICK_DEADZONE_OPTIONS.findIndex(value=>Math.abs(value-stickDeadzone)<.001);
-    chooseStickDeadzone(STICK_DEADZONE_OPTIONS[(index+1)%STICK_DEADZONE_OPTIONS.length]);
-  },[chooseStickDeadzone,stickDeadzone]);
   const audio = useMemo(()=>new RaceAudio(),[]);
   const [soundEnabled,setSoundEnabled]=useState(false);
   const [soundError,setSoundError]=useState(false);
@@ -294,6 +290,12 @@ export function App() {
   },[]);
   const [garage,setGarage]=useState(false);
   const [pendingRaceAction,setPendingRaceAction]=useState<'restart'|'menu'|null>(null);
+  const confirmButtonRef=useRef<HTMLButtonElement|null>(null);
+  const resumeButtonRef=useRef<HTMLButtonElement|null>(null);
+  useEffect(()=>{
+    if(pendingRaceAction)confirmButtonRef.current?.focus();
+    else if(game.phase==='paused')resumeButtonRef.current?.focus();
+  },[pendingRaceAction,game]);
   const [touchResetSerial,setTouchResetSerial]=useState(0);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
     try {return localStorage.getItem('ion-v4-craft')==='RACER'?'RACER':'KESTREL';}catch{return 'KESTREL';}
@@ -758,7 +760,7 @@ export function App() {
               <strong>{pendingRaceAction==='restart'?'RESTART THIS RUN?':'LEAVE THIS RUN?'}</strong>
               <p>Current lap, splits and incomplete race progress will be lost.
                 Previously saved personal-best records remain intact.</p>
-              <button type="button" className="cta"
+              <button ref={confirmButtonRef} type="button" className="cta"
                 onClick={pendingRaceAction==='restart'?start:mainMenu}>
                 {pendingRaceAction==='restart'?'CONFIRM RESTART':'CONFIRM RETURN TO MENU'}
               </button>
@@ -766,7 +768,7 @@ export function App() {
                 onClick={()=>setPendingRaceAction(null)}>KEEP PAUSED RUN</button>
             </div>
           ) : <>
-            <button type="button" className="cta" onClick={togglePause}>RESUME RACE <span>↗</span></button>
+            <button ref={resumeButtonRef} type="button" className="cta" onClick={togglePause}>RESUME RACE <span>↗</span></button>
             <button type="button" className="secondary-action" disabled={!data.recoveryReady} onClick={recover}>
               RECOVER TO {recoveryDestination} <span>+5 S · −8 SHIELD · −25 BOOST</span>
             </button>
@@ -795,7 +797,8 @@ export function App() {
         <main className="dialog-panel finish-panel">
           <div className="label-line">RACE CONTROL / {won?'RUN COMPLETE':'VEHICLE DISABLED'}</div>
           <h2>{won?'FINISH':'RUN OVER'}<span className="period">.</span></h2>
-          <p>{won?'Three source-scored laps complete. Sector splits and the original personal-best record appear below.':'Your shield failed after too many collisions. Try a cleaner line.'}</p>
+          <p>{won?'Three source-scored laps complete. Sector splits and the original personal-best record appear below.':
+            'Shield depleted. Finished laps and earned checkpoints are shown below; incomplete laps do not count as completed results.'}</p>
           {won&&data.newRecordThisRun&&(
             <div className="finish-best" role="status">NEW PERSONAL BEST LAP · {data.bestLap===null?'—':formatTime(data.bestLap)}</div>
           )}
@@ -805,8 +808,18 @@ export function App() {
             {' · '}{data.completedLapChallenges.filter(lap=>lap.clean).length}/3 CLEAN LAPS
             {' · '}{data.completedLapChallenges.filter(lap=>lap.pads===3).length}/3 FULL-PAD LAPS
           </p>}
-          {won && <div className="results">
-            <div><span>TOTAL TIME</span><strong className="mono">{formatTime(data.elapsed)}</strong></div>
+          <div className="results">
+            <div><span>{won?'TOTAL TIME':'ELAPSED BEFORE FAILURE'}</span>
+              <strong className="mono">{formatTime(data.elapsed)}</strong></div>
+            {!won && <>
+              <div><span>LAST COMPLETED GATE</span>
+                <strong>{data.nextGate===1?'START / FINISH':
+                  'S'+(data.nextGate-1)}</strong>
+              </div>
+              <div><span>LAST ATTEMPT</span>
+                <strong>LAP {data.lap} / {data.laps} · {data.currentLapPads}/3 PADS</strong>
+              </div>
+            </>}
             {data.lapTimes.map((lap,index)=>(
               <div className="lap-result" key={index}>
                 <span>LAP {String(index+1).padStart(2,'0')}</span>
@@ -831,7 +844,7 @@ export function App() {
             <div><span>PERSONAL BEST LAP</span><strong className="mono">{data.bestLap===null?'—':formatTime(data.bestLap)}</strong></div>
             <div><span>RECOVERIES</span><strong className="mono">{data.recoveryCount} · +{data.recoveryCount*5} S</strong></div>
             <div><span>NEXT CHALLENGE</span><strong>BEAT YOUR BEST · CLEAN LAP · ALL 3 PADS</strong></div>
-          </div>}
+          </div>
           <button type="button" className="cta" onClick={start}>RACE AGAIN <span>↗</span></button>
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
         </main>
