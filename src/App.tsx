@@ -431,8 +431,10 @@ export function App() {
   const approach=(data.phase==='racing' && !data.trackWarning &&
     (!showFirstRaceHint||data.elapsed>=17) && data.speedKmh>30)?
     upcomingApproach(data.progress,data.speedKmh):null;
-  const showCoach=showFirstRaceHint && (data.phase==='countdown'||
-    (data.phase==='racing'&&data.elapsed<17));
+  // A wrong-way or missed-checkpoint alert takes priority over onboarding,
+  // keeping contradictory guidance from occupying the same live viewport.
+  const showCoach=!data.trackWarning && showFirstRaceHint &&
+    (data.phase==='countdown'||(data.phase==='racing'&&data.elapsed<17));
   const recentEvent=data.phase==='racing' && data.raceEvent &&
     data.elapsed-data.raceEvent.elapsed>=0 &&
     data.elapsed-data.raceEvent.elapsed<3.1?data.raceEvent:null;
