@@ -322,6 +322,11 @@ export class RaceEngine {
   private padSurgeSeconds=0;
   get padSurge(){return this.padSurgeSeconds>0;}
   private steering=0;
+  // The physical travel direction follows the craft yaw through one bounded
+  // grip response. It is not a second movement engine or scoring projector.
+  // The craft points where the player steers immediately, while momentum
+  // catches up so turns have readable grip rather than instant vector snaps.
+  private motionHeading=headingAt(0);
   /** Smoothed driver's last steering command, shared only within this engine. */
   get steeringAmount(){return this.steering;}
   private lastBoostPadDistance = -1;
@@ -343,6 +348,7 @@ export class RaceEngine {
     this.position.copy(trackAt(0).position);
     this.position.y += 2.5;
     this.heading = headingAt(0);
+    this.motionHeading=this.heading;
     this.speed = 0;
     this.pitch = 0;
     this.roll = 0;
@@ -391,6 +397,7 @@ export class RaceEngine {
     this.position.copy(spot.position);
     this.position.y+=2.5;
     this.heading=Math.atan2(spot.tangent.x,spot.tangent.z);
+    this.motionHeading=this.heading;
     this.previousT=t;
     this.progress=t;
     this.checkpoints=gate;
@@ -431,6 +438,9 @@ export class RaceEngine {
     if(this.phase==='racing'||this.phase==='countdown'){
       this.phase='paused';
       this.isBoosting=false;
+      // Do not restart a paused high-speed bend with a stale travel angle.
+      // The original countdown already freezes distance and race time.
+      this.motionHeading=this.heading;
     }else if(this.phase==='paused'){
       // Returning from an interrupted high-speed race should not resume at
       // full velocity before the player can see/reacquire the controls.
@@ -443,6 +453,7 @@ export class RaceEngine {
   update(rawDelta: number, controls: Controls) {
     const dt = Math.min(rawDelta, 0.045);
     if (this.phase === 'countdown') {
+      this.motionHeading=this.heading;
       this.count = Math.max(0, this.count - dt);
       if (this.count <= 0) this.phase = 'racing';
       return;
@@ -457,8 +468,13 @@ export class RaceEngine {
     this.impact = Math.max(0, this.impact - dt * 2.4);
     this.projectionWarningSeconds=Math.max(0,this.projectionWarningSeconds-dt);
 
-    const driving = controls.throttle > 0;
-    this.isBoosting = controls.boost && driving && this.boost > 0;
+    const throttle=Math.max(0,Math.min(1,controls.throttle));
+    const brake=Math.max(0,Math.min(1,controls.brake));
+    // Brake wins over simultaneous throttle/boost. A player holding GO and
+    // BRAKE (especially while sliding a thumb between pads) must decelerate,
+    // not consume boost while pulling against the brakes.
+    const driving=throttle>.05 && brake<.3;
+    this.isBoosting=controls.boost && driving && this.boost>0;
     if (this.isBoosting) this.boost = Math.max(0, this.boost - dt * 27);
     else if (!controls.boost || !driving)
       // A held, empty boost trigger must not alternate between one free
@@ -467,26 +483,30 @@ export class RaceEngine {
       // pads may still refill the pool while the trigger is held.
       this.boost = Math.min(100, this.boost + dt * 7.5);
 
-    // Arcade acceleration, aerodynamic drag and stronger braking.
-    // The 60 Hz fixed-step World loop is the only authoritative integrator.
-    const acceleration=this.isBoosting?46:32;
-    const braking=Math.max(0,controls.brake)*58;
-    const drag=1.35 + .00093*this.speed*this.speed;
+    // Keep the original m/s speed authority and speed limits (86/112/115).
+    // Gently taper thrust at high speed instead of abrupt acceleration, with
+    // progressive braking and explicit pedal conflict handling.
+    // Only the existing 60 Hz World loop integrates these velocities.
+    const acceleration=(this.isBoosting?49:38)*
+      (1-.24*Math.min(1,this.speed/115));
+    const braking=brake*72;
+    const drag=1.15+.00084*this.speed*this.speed;
     const cap=this.isBoosting?115:this.padSurgeSeconds>0?112:86;
     // Pad thrust is a short real surge. Do not snap from 112 straight back
     // to 86 on the following fixed step: smoothly shed overspeed when the
     // pad expires, preserving the original speed limits for sustained drive.
     const overspeedDrag=Math.max(0,this.speed-cap)*3.2;
-    const forwardThrust=this.speed>=cap?0:controls.throttle*acceleration;
+    const forwardThrust=this.speed>=cap?0:
+      throttle*acceleration*Math.max(0,1-brake*2.5);
     this.speed=Math.max(0,Math.min(115,
       this.speed+(forwardThrust-braking-drag-overspeedDrag)*dt));
     if(this.speed>cap && this.isBoosting)this.speed=cap;
 
-    // Time-consistent input filtering removes digital steering snap and
-    // works with continuous gamepad axes without introducing a second physics
-    // authority. Braking helps rotate tightly at the apex.
+    // Time-consistent steering filters work identically on keys, controller
+    // and thumb zones; brakes increase slow-corner yaw response without
+    // enabling zero-speed pivoting.
     const desiredSteering=Math.max(-1,Math.min(1,controls.steer));
-    const filter=1-Math.exp(-dt*(desiredSteering===0?10.5:8.8));
+    const filter=1-Math.exp(-dt*(desiredSteering===0?12:10.5));
     this.steering+=(desiredSteering-this.steering)*filter;
     const speedFactor=Math.min(this.speed/77,1);
     // With a chase camera viewing along the craft's +Z, projected screen
@@ -499,8 +519,8 @@ export class RaceEngine {
     // speed to escape a wall and enough at high speed to negotiate chicanes.
     // Right input remains negative yaw for the source chase-camera convention.
     const motionAuthority=Math.min(1,this.speed/6);
-    const steeringRate=(.40+speedFactor*1.20)*
-      motionAuthority*(controls.brake>.05?1.35:1);
+    const steeringRate=(.63+speedFactor*.96)*
+      motionAuthority*(brake>.12?1.31:1);
     this.heading=wrapAngle(this.heading-this.steering*steeringRate*dt);
     const roadBefore=nearestTrack(this.position.x,this.position.z,this.previousT);
     // Gentle tangent alignment only when steering is almost neutral; the
@@ -509,18 +529,33 @@ export class RaceEngine {
     this.heading=wrapAngle(this.heading+
       wrapAngle(roadBefore.heading-this.heading)*dt*assist*Math.min(this.speed/38,1));
 
-    this.position.x += Math.sin(this.heading)*this.speed*dt;
-    this.position.z += Math.cos(this.heading)*this.speed*dt;
+    // Grip is a first-order, frame-rate-independent response from actual
+    // velocity heading to desired craft yaw. At speed it permits a small
+    // visible slip angle; hard braking progressively tightens grip.
+    const gripRate=12-4*speedFactor+brake*4;
+    this.motionHeading=wrapAngle(this.motionHeading+
+      wrapAngle(this.heading-this.motionHeading)*(1-Math.exp(-dt*gripRate)));
+    this.position.x+=Math.sin(this.motionHeading)*this.speed*dt;
+    this.position.z+=Math.cos(this.motionHeading)*this.speed*dt;
 
     const road=nearestTrack(this.position.x,this.position.z,roadBefore.t);
-    this.position.y += (road.y + 2.5 - this.position.y) * Math.min(1, dt * 7);
+    // Follow authentic elevation changes without an artificial bobbing
+    // oscillation in the race's physical position.
+    this.position.y+=(road.y+2.5-this.position.y)*
+      (1-Math.exp(-dt*(8+2*speedFactor)));
     // Yaw-right is negative world Y rotation, so the screen-right wing is
     // local -X. Positive roll lowers that wing; V17's negative roll banked
     // *away* from the player's requested right turn.
-    const bank=this.steering*speedFactor*(controls.brake>.05?.17:.27);
-    this.roll+=(bank-this.roll)*(1-Math.exp(-dt*7.4));
-    const desiredPitch=-Math.min(.17,this.speed/620)+(controls.brake>.05?.075:0);
-    this.pitch+=(desiredPitch-this.pitch)*(1-Math.exp(-dt*5.2));
+    const slip=wrapAngle(this.heading-this.motionHeading);
+    const bank=this.steering*speedFactor*(brake>.12?.17:.26)+
+      Math.max(-.055,Math.min(.055,slip*.34));
+    this.roll+=(bank-this.roll)*(1-Math.exp(-dt*8.2));
+    const uphill=trackAt((road.t+.006)%1).position;
+    const grade=Math.atan2(uphill.y-road.y,
+      Math.hypot(uphill.x-road.centerX,uphill.z-road.centerZ)||1);
+    const desiredPitch=-Math.min(.15,this.speed/680)+(brake>.12?.07:0)-
+      Math.max(-.12,Math.min(.12,grade*.55));
+    this.pitch+=(desiredPitch-this.pitch)*(1-Math.exp(-dt*6));
 
     // Compare the craft *body* with the actual visible rail, not its center.
     // Kestrel's authored wings extend 3.86m either side of center and the
@@ -534,24 +569,35 @@ export class RaceEngine {
       const side = Math.sign(road.lateral);
       const newImpact=this.wallContactSide!==side;
       this.wallContactSide=side;
-      this.position.x = road.centerX + road.rightX * boundary * side;
-      this.position.z = road.centerZ + road.rightZ * boundary * side;
+      // Move the craft's hull a small distance *inside* the solid rail.
+      // Clamping exactly to the boundary otherwise lets steering push into
+      // the same wall again on each fixed step with no visual separation.
+      const inside=boundary-.3;
+      this.position.x=road.centerX+road.rightX*inside*side;
+      this.position.z=road.centerZ+road.rightZ*inside*side;
       // A continuous scrape against the same rail is one collision, not
       // new full-speed shield damage every cooldown cycle.
       if (newImpact && this.wallCooldown <= 0 && this.speed > 12) {
-        // Resolve a real impact once, not exponential drag every frame while
-        // the craft is touching a rail. Damage scales with actual impact speed.
-        const impactSpeed = this.speed;
-        this.speed *= 0.69;
-        this.shield = Math.max(0, this.shield - Math.max(8, Math.min(19, 6 + impactSpeed * .115)));
+        // Grazing a guardrail should not be as punishing as driving across
+        // it. Calculate impact incidence from real momentum, not just yaw.
+        // Retain the previous damage cooldown / shield and fail authority.
+        const impactSpeed=this.speed;
+        const incidence=Math.min(1,
+          Math.abs(Math.sin(wrapAngle(this.motionHeading-road.heading))));
+        this.speed*=.88-.26*incidence;
+        this.shield=Math.max(0,this.shield-
+          Math.max(6,Math.min(19,(4+impactSpeed*.115)*(.72+.54*incidence))));
         this.wallCooldown = 0.64;
         this.impact = 1;
         this.lastImpactSide=side;
       }
-      // Redirect velocity along the track so a steering-locked player can
-      // escape a guardrail rather than losing speed on every 60 Hz tick.
-      this.heading = wrapAngle(this.heading +
-        wrapAngle(road.heading - this.heading) * Math.min(1, dt * 13));
+      // Release both facing and *travel* heading toward the rail tangent.
+      // Reorienting yaw alone while the physical velocity still points into
+      // the wall leaves the vehicle visually stuck after a crash.
+      this.heading=wrapAngle(this.heading+
+        wrapAngle(road.heading-this.heading)*Math.min(1,dt*13));
+      this.motionHeading=wrapAngle(this.motionHeading+
+        wrapAngle(road.heading-this.motionHeading)*Math.min(1,dt*18));
       if (this.shield <= 0) {
         this.phase = 'finished';
         this.reason = 'destroyed';
@@ -585,6 +631,7 @@ export class RaceEngine {
         roadBefore.rightZ*Math.max(-boundary,Math.min(boundary,roadBefore.lateral));
       this.position.y=roadBefore.y+2.5;
       this.heading=roadBefore.heading;
+      this.motionHeading=this.heading;
       this.speed=Math.min(this.speed,14);
       this.roll=0;
       this.impact=Math.max(this.impact,.42);
@@ -702,7 +749,9 @@ export class RaceEngine {
     if (onPad && this.usedBoostPad !== crossedPad &&
       distance - this.lastBoostPadDistance > .12) {
       this.boost = Math.min(100, this.boost + 24);
-      this.speed = Math.min(112, this.speed + 16);
+      // A physical pad can add speed up to its 112 m/s surge target, but
+      // must not *reduce* an already-faster 115 m/s active-boost run.
+      this.speed=Math.max(this.speed,Math.min(112,this.speed+16));
       this.padSurgeSeconds=.9;
       this.usedBoostPad = crossedPad;
       this.lastBoostPadDistance = distance;
