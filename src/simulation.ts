@@ -1,4 +1,4 @@
-import { BOOST_PAD_T, headingAt, nearestTrack, ROAD_HALF_WIDTH, TRACK_LENGTH, trackAt } from './track';
+import { BOOST_PAD_T, headingAt, nearestTrack, RAIL_INNER_OFFSET, TRACK_LENGTH, trackAt } from './track';
 
 export type Phase = 'menu' | 'countdown' | 'racing' | 'paused' | 'finished';
 export type FinishReason = 'complete' | 'destroyed' | null;
@@ -545,6 +545,10 @@ export class RaceEngine {
     // oscillation in the race's physical position.
     this.position.y+=(road.y+2.5-this.position.y)*
       (1-Math.exp(-dt*(8+2*speedFactor)));
+    // Climbing a steep crest at race speed can leave this smoothed physical
+    // height below the actual deck: prevent hull/deck penetration without
+    // flattening the original authored slope or adding a second height map.
+    this.position.y=Math.max(this.position.y,road.y+2.12);
     // Yaw-right is negative world Y rotation, so the screen-right wing is
     // local -X. Positive roll lowers that wing; V17's negative roll banked
     // *away* from the player's requested right turn.
@@ -559,22 +563,24 @@ export class RaceEngine {
       Math.max(-.12,Math.min(.12,grade*.55));
     this.pitch+=(desiredPitch-this.pitch)*(1-Math.exp(-dt*6));
 
-    // Compare the craft *body* with the actual visible rail, not its center.
-    // Kestrel's authored wings extend 3.86m either side of center and the
-    // visible inner rail begins at ROAD_HALF_WIDTH - .28 (12.72m).
-    // The previous 11.5m centerline clamp allowed ~2.64m of wing penetration
-    // before applying the collision, making the guardrail appear non-solid.
-    // Keep a 0.2m margin; the original centerline projection remains in charge.
-    const boundary = ROAD_HALF_WIDTH - 4.15;
+    // The visible inner rail is at the canonical RAIL_INNER_OFFSET. Both
+    // craft hulls fit inside a 3.95m lateral × 3.95m longitudinal half-box:
+    // Kestrel's 3.86m wings plus its authored bevel, and the Kenney craft
+    // normalized to a 7.7m maximum horizontal dimension.
+    // A fixed 3.95m lateral extent was only correct when aligned with the
+    // tangent: at 45 degrees the actual rotated hull clips the inner wall.
+    // Keep one conservative body envelope for both purely visual craft types.
+    const yawToRoad=wrapAngle(this.heading-road.heading);
+    const extent=3.95*(Math.abs(Math.cos(yawToRoad))+
+      Math.abs(Math.sin(yawToRoad)));
+    const boundary=Math.max(5.5,RAIL_INNER_OFFSET-extent-.17);
     if (Math.abs(road.lateral) > boundary) {
       this.wallReleaseTime=0;
       const side = Math.sign(road.lateral);
       const newImpact=this.wallContactSide!==side;
       this.wallContactSide=side;
-      // Move the craft's hull a small distance *inside* the solid rail.
-      // Clamping exactly to the boundary otherwise lets steering push into
-      // the same wall again on each fixed step with no visual separation.
-      const inside=boundary-.3;
+      // Avoid alternating clamp/recontact jitter during one sustained scrape.
+      const inside=boundary-.22;
       this.position.x=road.centerX+road.rightX*inside*side;
       this.position.z=road.centerZ+road.rightZ*inside*side;
       // A continuous scrape against the same rail is one collision, not

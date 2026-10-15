@@ -10,5 +10,7 @@ node scripts/i05-physics-smoke.mjs
 node scripts/i06-track-qualification.mjs
 # Drive three physically earned laps at low speed using canonical RaceEngine.
 node scripts/i06-three-lap-drive.mjs
+# I07 exercises real rail geometry, angled impacts, crests and faster laps.
+node scripts/i07-collision-and-fast-laps.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build
