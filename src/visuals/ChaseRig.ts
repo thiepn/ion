@@ -72,7 +72,9 @@ export class ChaseRig {
       // hiding the selected paint or presenting the rear as the front.
       const anchor=view==='SIDE'?Math.PI/2:
         view==='REAR'?Math.PI:.82;
-      const spin=anchor+(reducedMotion?0:Math.sin(time*.23)*.055);
+      // Camera angles must be relative to the original craft heading,
+      // not world north, or SIDE/REAR depend on the circuit's grid yaw.
+      const spin=angle+anchor+(reducedMotion?0:Math.sin(time*.23)*.055);
       const r=10.8;
       tmpPosition.set(game.position.x+Math.sin(spin)*r,
         game.position.y+5.1,game.position.z+Math.cos(spin)*r);
