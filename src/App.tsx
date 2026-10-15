@@ -32,6 +32,25 @@ function formatTime(seconds: number) {
   return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
 }
 
+function DeadzoneSetting({value,onChange,controlId}:{
+  value:number;
+  onChange:(value:number)=>void;
+  controlId:string;
+}) {
+  return <div className="controller-setting">
+    <label htmlFor={controlId}>CONTROLLER STICK DEAD ZONE</label>
+    <select id={controlId} value={value}
+      onChange={event=>onChange(Number(event.currentTarget.value))}>
+      {STICK_DEADZONE_OPTIONS.map(option=>
+        <option key={option} value={option}>
+          {Math.round(option*100)}% {option===.15?'· DEFAULT':''}
+        </option>
+      )}
+    </select>
+    <small>Lower responds sooner. Increase for drifting sticks. Saved on this device.</small>
+  </div>;
+}
+
 function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'coral'|'blue'}) {
   const level=Math.max(0,Math.min(100,Math.round(amount)));
   return (
@@ -199,10 +218,6 @@ export function App() {
     input.setStickDeadzone(next);
     setStickDeadzone(input.getStickDeadzone());
   },[input]);
-  const cycleStickDeadzone=useCallback(()=>{
-    const index=STICK_DEADZONE_OPTIONS.findIndex(value=>Math.abs(value-stickDeadzone)<.001);
-    chooseStickDeadzone(STICK_DEADZONE_OPTIONS[(index+1)%STICK_DEADZONE_OPTIONS.length]);
-  },[chooseStickDeadzone,stickDeadzone]);
   const audio = useMemo(()=>new RaceAudio(),[]);
   const [soundEnabled,setSoundEnabled]=useState(false);
   const [soundError,setSoundError]=useState(false);
@@ -274,6 +289,13 @@ export function App() {
     catch{/* optional local first-run preference */}
   },[]);
   const [garage,setGarage]=useState(false);
+  const [pendingRaceAction,setPendingRaceAction]=useState<'restart'|'menu'|null>(null);
+  const confirmButtonRef=useRef<HTMLButtonElement|null>(null);
+  const resumeButtonRef=useRef<HTMLButtonElement|null>(null);
+  useEffect(()=>{
+    if(pendingRaceAction)confirmButtonRef.current?.focus();
+    else if(game.phase==='paused')resumeButtonRef.current?.focus();
+  },[pendingRaceAction,game]);
   const [touchResetSerial,setTouchResetSerial]=useState(0);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
     try {return localStorage.getItem('ion-v4-craft')==='RACER'?'RACER':'KESTREL';}catch{return 'KESTREL';}
@@ -322,23 +344,43 @@ export function App() {
     };
   },[audio]);
   const togglePause=useCallback(()=>{
-    // Never carry a stale keyboard/pointer boost or throttle through pause.
+    // Clearing InputController alone leaves a captured touch-zone pointer
+    // visually held. Remount both zones on every pause/resume boundary.
     input.clear();
+    setTouchResetSerial(n=>n+1);
+    setPendingRaceAction(null);
     game.pause();
     refresh();
   },[game,input,refresh]);
   const start=useCallback(()=>{
     input.clear();
+    setTouchResetSerial(n=>n+1);
+    setPendingRaceAction(null);
     game.start();
     setGamepadNotice(null);
     setGarage(false);setHelp(false);refresh();
   },[game,input,refresh]);
   const mainMenu=useCallback(()=>{
     input.clear();
+    setTouchResetSerial(n=>n+1);
+    setPendingRaceAction(null);
     game.menu();
     setGamepadNotice(null);
     setGarage(false);setHelp(false);refresh();
   },[game,input,refresh]);
+  const requestRaceAction=useCallback((action:'restart'|'menu')=>{
+    // R or a pause-menu button must not delete a live scored run without
+    // explicit confirmation. Preserve the source race by pausing first.
+    if(game.phase==='finished'||game.phase==='menu'){
+      if(action==='restart')start();else mainMenu();
+      return;
+    }
+    input.clear();
+    setTouchResetSerial(n=>n+1);
+    if(game.phase==='racing'||game.phase==='countdown')game.pause();
+    setPendingRaceAction(action);
+    refresh();
+  },[game,input,refresh,start,mainMenu]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
   const recover=useCallback(()=>{
     if(!game.recover())return;
@@ -374,8 +416,11 @@ export function App() {
       }
     };
     input.onKeyAction=(action)=>{
+      // The Controls modal owns keyboard interaction while it is open.
+      if(help)return;
       if (action==='pause') togglePause();
-      if (action==='reset' && newest.current.phase!=='menu') start();
+      if (action==='reset' && newest.current.phase!=='menu')
+        requestRaceAction('restart');
       if (action==='camera') toggleCamera();
       if (action==='recover') recover();
     };
@@ -407,7 +452,7 @@ export function App() {
       input.onGamepadDisconnect=undefined;
       input.detach();
     };
-  },[game,input,refresh,start,togglePause,toggleCamera,recover]);
+  },[game,input,refresh,help,togglePause,toggleCamera,recover,requestRaceAction]);
 
   const onTelemetry=useCallback((next:RaceSnapshot)=>{
     audio.update(next);
@@ -691,8 +736,13 @@ export function App() {
               </button>
             </div>
           </div>
+          <DeadzoneSetting value={stickDeadzone} onChange={chooseStickDeadzone}
+            controlId="ion-garage-stick-deadzone"/>
           <div className="garage-actions">
             <button type="button" className="cta" onClick={start}>RACE WITH THIS CRAFT <span>↗</span></button>
+            <button type="button" className="secondary-action" onClick={()=>setHelp(true)}>
+              CONTROLS & SETTINGS
+            </button>
             <button type="button" className="secondary-action" onClick={()=>setGarage(false)}>BACK TO MAIN MENU</button>
           </div>
         </main>
@@ -702,13 +752,33 @@ export function App() {
         <main className="dialog-panel">
           <div className="label-line">RACE CONTROL / SUSPENDED</div>
           <h2>PAUSED<span className="period">.</span></h2>
-          <p>Your run is frozen. Resume from the same position and lap.</p>
-          <button type="button" className="cta" onClick={togglePause}>RESUME RACE <span>↗</span></button>
-          <button type="button" className="secondary-action" disabled={!data.recoveryReady} onClick={recover}>
-            RECOVER TO {recoveryDestination} <span>+5 S · −8 SHIELD · −25 BOOST</span>
-          </button>
-          <button type="button" className="secondary-action" onClick={start}>RESTART FROM GRID</button>
-          <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
+          <p>Your run is frozen at lap {data.lap} / {data.laps},
+            {data.nextGateLabel.toLowerCase()} next ({data.distanceToGateM} m).
+            Race time: {formatTime(data.elapsed)}. Resume preserves your scored progress.</p>
+          {pendingRaceAction ? (
+            <div className="race-exit-confirm" role="group"
+              aria-label={pendingRaceAction==='restart'?
+                'Confirm restart and discard current run':'Confirm return to menu and discard current run'}>
+              <strong>{pendingRaceAction==='restart'?'RESTART THIS RUN?':'LEAVE THIS RUN?'}</strong>
+              <p>Current lap, splits and incomplete race progress will be lost.
+                Previously saved personal-best records remain intact.</p>
+              <button ref={confirmButtonRef} type="button" className="cta"
+                onClick={pendingRaceAction==='restart'?start:mainMenu}>
+                {pendingRaceAction==='restart'?'CONFIRM RESTART':'CONFIRM RETURN TO MENU'}
+              </button>
+              <button type="button" className="secondary-action"
+                onClick={()=>setPendingRaceAction(null)}>KEEP PAUSED RUN</button>
+            </div>
+          ) : <>
+            <button ref={resumeButtonRef} type="button" className="cta" onClick={togglePause}>RESUME RACE <span>↗</span></button>
+            <button type="button" className="secondary-action" disabled={!data.recoveryReady} onClick={recover}>
+              RECOVER TO {recoveryDestination} <span>+5 S · −8 SHIELD · −25 BOOST</span>
+            </button>
+            <button type="button" className="secondary-action"
+              onClick={()=>requestRaceAction('restart')}>RESTART FROM GRID</button>
+            <button type="button" className="secondary-action"
+              onClick={()=>requestRaceAction('menu')}>RETURN TO MENU</button>
+          </>}
           <div className="pause-options">
             <div className="label-line">DISPLAY</div>
             <button type="button" className="option-button" onClick={()=>chooseQuality(quality==='QUALITY'?'PERFORMANCE':'QUALITY')}>
@@ -717,10 +787,10 @@ export function App() {
             <button type="button" className="option-button" onClick={toggleCamera}>
               CAMERA <b>{cameraMode} <span>↔</span></b>
             </button>
-            <button type="button" className="option-button" onClick={cycleStickDeadzone}
-              aria-label={'Controller steering dead zone '+Math.round(stickDeadzone*100)+' percent. Change sensitivity'}>
-              STICK DEAD ZONE <b>{Math.round(stickDeadzone*100)}% <span>↔</span></b>
-            </button>
+            <DeadzoneSetting value={stickDeadzone} onChange={chooseStickDeadzone}
+              controlId="ion-pause-stick-deadzone"/>
+            <button type="button" className="secondary-action"
+              onClick={()=>setHelp(true)}>OPEN PILOT MANUAL</button>
           </div>
         </main>
       )}
@@ -729,7 +799,8 @@ export function App() {
         <main className="dialog-panel finish-panel">
           <div className="label-line">RACE CONTROL / {won?'RUN COMPLETE':'VEHICLE DISABLED'}</div>
           <h2>{won?'FINISH':'RUN OVER'}<span className="period">.</span></h2>
-          <p>{won?'Three source-scored laps complete. Sector splits and the original personal-best record appear below.':'Your shield failed after too many collisions. Try a cleaner line.'}</p>
+          <p>{won?'Three source-scored laps complete. Sector splits and the original personal-best record appear below.':
+            'Shield depleted. Finished laps and earned checkpoints are shown below; incomplete laps do not count as completed results.'}</p>
           {won&&data.newRecordThisRun&&(
             <div className="finish-best" role="status">NEW PERSONAL BEST LAP · {data.bestLap===null?'—':formatTime(data.bestLap)}</div>
           )}
@@ -739,8 +810,18 @@ export function App() {
             {' · '}{data.completedLapChallenges.filter(lap=>lap.clean).length}/3 CLEAN LAPS
             {' · '}{data.completedLapChallenges.filter(lap=>lap.pads===3).length}/3 FULL-PAD LAPS
           </p>}
-          {won && <div className="results">
-            <div><span>TOTAL TIME</span><strong className="mono">{formatTime(data.elapsed)}</strong></div>
+          <div className="results">
+            <div><span>{won?'TOTAL TIME':'ELAPSED BEFORE FAILURE'}</span>
+              <strong className="mono">{formatTime(data.elapsed)}</strong></div>
+            {!won && <>
+              <div><span>LAST COMPLETED GATE</span>
+                <strong>{data.nextGate===1?'START / FINISH':
+                  'S'+(data.nextGate-1)}</strong>
+              </div>
+              <div><span>LAST ATTEMPT</span>
+                <strong>LAP {data.lap} / {data.laps} · {data.currentLapPads}/3 PADS</strong>
+              </div>
+            </>}
             {data.lapTimes.map((lap,index)=>(
               <div className="lap-result" key={index}>
                 <span>LAP {String(index+1).padStart(2,'0')}</span>
@@ -765,7 +846,7 @@ export function App() {
             <div><span>PERSONAL BEST LAP</span><strong className="mono">{data.bestLap===null?'—':formatTime(data.bestLap)}</strong></div>
             <div><span>RECOVERIES</span><strong className="mono">{data.recoveryCount} · +{data.recoveryCount*5} S</strong></div>
             <div><span>NEXT CHALLENGE</span><strong>BEAT YOUR BEST · CLEAN LAP · ALL 3 PADS</strong></div>
-          </div>}
+          </div>
           <button type="button" className="cta" onClick={start}>RACE AGAIN <span>↗</span></button>
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
         </main>
@@ -787,16 +868,8 @@ export function App() {
               <div><dt>RESTART</dt><dd>R</dd></div>
               <div><dt>TRACK RECOVERY</dt><dd>T / GAMEPAD LB</dd></div>
             </dl>
-            <div className="controller-setting">
-              <label htmlFor="ion-stick-deadzone">CONTROLLER STICK DEAD ZONE</label>
-              <select id="ion-stick-deadzone" value={stickDeadzone}
-                onChange={event=>chooseStickDeadzone(Number(event.currentTarget.value))}>
-                {STICK_DEADZONE_OPTIONS.map(value=>(
-                  <option key={value} value={value}>{Math.round(value*100)}% {value===.15?'· DEFAULT':''}</option>
-                ))}
-              </select>
-              <small>Lower values respond earlier. Increase this if a drifting stick steers without input.</small>
-            </div>
+            <DeadzoneSetting value={stickDeadzone} onChange={chooseStickDeadzone}
+              controlId="ion-manual-stick-deadzone"/>
             <p>Gamepad left stick, D-pad left/right, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery sends you to the last earned quarter gate (or the start grid before S1), costing 5 seconds, 8 shield and 25 boost. It cannot award a missed checkpoint.</p>
             <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
             <button className="cta" data-close-manual type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
