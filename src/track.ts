@@ -4,6 +4,10 @@ import {
 } from 'three';
 
 export const ROAD_HALF_WIDTH = 13;
+/** The inner physical face of the visually rendered rail, in track meters. */
+export const RAIL_INNER_OFFSET = ROAD_HALF_WIDTH - 0.28;
+export const RAIL_BOTTOM_RISE = 0.40;
+export const RAIL_TOP_RISE = 3.55;
 export const SEGMENTS = 480;
 
 /**
@@ -145,4 +149,37 @@ export function ribbon(innerOffset: number, outerOffset: number, rise = 0): Buff
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
+}
+
+/**
+ * Upright rail wall following the same canonical road samples as the deck,
+ * collision projector, boost strips and lap gates. This is solely rendered
+ * geometry; it neither projects the vehicle nor awards checkpoints.
+ *
+ * The previous horizontal 'rail' ribbon was only 0.43 m above the surface;
+ * the craft hovered at y + 2.5 m and appeared to drive through the rail.
+ */
+export function railWall(side: -1 | 1): BufferGeometry {
+  const positions:number[]=[];
+  const indices:number[]=[];
+  const uvs:number[]=[];
+  for(let i=0;i<=SEGMENTS;i++){
+    const {position,right}=trackAt(i/SEGMENTS);
+    const x=position.x+right.x*RAIL_INNER_OFFSET*side;
+    const z=position.z+right.z*RAIL_INNER_OFFSET*side;
+    for(const height of [RAIL_BOTTOM_RISE,RAIL_TOP_RISE]){
+      positions.push(x,position.y+height,z);
+      uvs.push(i/SEGMENTS*60,(height-RAIL_BOTTOM_RISE)/(RAIL_TOP_RISE-RAIL_BOTTOM_RISE));
+    }
+    if(i<SEGMENTS){
+      const k=i*2;
+      indices.push(k,k+1,k+2,k+1,k+3,k+2);
+    }
+  }
+  const result=new BufferGeometry();
+  result.setAttribute('position',new Float32BufferAttribute(positions,3));
+  result.setAttribute('uv',new Float32BufferAttribute(uvs,2));
+  result.setIndex(indices);
+  result.computeVertexNormals();
+  return result;
 }
