@@ -8,6 +8,7 @@ import { RaceAudio } from './audio';
 type CameraMode = 'CHASE' | 'NEAR';
 type Quality = 'PERFORMANCE' | 'QUALITY';
 type CraftKind = 'KESTREL'|'RACER';
+const STICK_DEADZONE_OPTIONS=[0.10,0.15,0.20,0.25] as const;
 const PAINTS = [
   { name: 'ARCTIC', hex: '#e2f0ed', detail: 'CERAMIC WHITE' },
   { name: 'EMBER', hex: '#f08958', detail: 'SIGNAL ORANGE' },
@@ -188,6 +189,15 @@ function TouchZone({input,actions,className,label,keyboardBase}:{
 export function App() {
   const game = useMemo(()=>new RaceEngine(),[]);
   const input = useMemo(()=>new InputController(),[]);
+  const [stickDeadzone,setStickDeadzone]=useState(()=>input.getStickDeadzone());
+  const chooseStickDeadzone=useCallback((next:number)=>{
+    input.setStickDeadzone(next);
+    setStickDeadzone(input.getStickDeadzone());
+  },[input]);
+  const cycleStickDeadzone=useCallback(()=>{
+    const index=STICK_DEADZONE_OPTIONS.findIndex(value=>Math.abs(value-stickDeadzone)<.001);
+    chooseStickDeadzone(STICK_DEADZONE_OPTIONS[(index+1)%STICK_DEADZONE_OPTIONS.length]);
+  },[chooseStickDeadzone,stickDeadzone]);
   const audio = useMemo(()=>new RaceAudio(),[]);
   const [soundEnabled,setSoundEnabled]=useState(false);
   const [soundError,setSoundError]=useState(false);
@@ -296,6 +306,7 @@ export function App() {
     // retaining native keyboard activation of controls in menus and pause.
     input.isRaceActive=()=>game.phase==='racing'||game.phase==='countdown';
     input.onGamepadDisconnect=()=>{
+      input.clear();
       disconnectedController.current=true;
       const active=game.phase==='racing'||game.phase==='countdown';
       if(active)game.pause();
@@ -576,6 +587,10 @@ export function App() {
             <button type="button" className="option-button" onClick={toggleCamera}>
               CAMERA <b>{cameraMode} <span>↔</span></b>
             </button>
+            <button type="button" className="option-button" onClick={cycleStickDeadzone}
+              aria-label={'Controller steering dead zone '+Math.round(stickDeadzone*100)+' percent. Change sensitivity'}>
+              STICK DEAD ZONE <b>{Math.round(stickDeadzone*100)}% <span>↔</span></b>
+            </button>
           </div>
         </main>
       )}
@@ -613,7 +628,17 @@ export function App() {
               <div><dt>RESTART</dt><dd>R</dd></div>
               <div><dt>TRACK RECOVERY</dt><dd>T / GAMEPAD LB</dd></div>
             </dl>
-            <p>Gamepad left stick, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
+            <div className="controller-setting">
+              <label htmlFor="ion-stick-deadzone">CONTROLLER STICK DEAD ZONE</label>
+              <select id="ion-stick-deadzone" value={stickDeadzone}
+                onChange={event=>chooseStickDeadzone(Number(event.currentTarget.value))}>
+                {STICK_DEADZONE_OPTIONS.map(value=>(
+                  <option key={value} value={value}>{Math.round(value*100)}% {value===.15?'· DEFAULT':''}</option>
+                ))}
+              </select>
+              <small>Lower values respond earlier. Increase this if a drifting stick steers without input.</small>
+            </div>
+            <p>Gamepad left stick, D-pad left/right, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
             <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
             <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>

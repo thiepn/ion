@@ -38,6 +38,11 @@ const MAX_LAPS = 3;
 // A materially different V17 circuit cannot share comparable lap records
 // with the original Nightshift track. Older local records remain untouched.
 const STORAGE_KEY = 'ion-v17-nightshift-best-lap';
+const INPUT_STICK_DEADZONE_KEY = 'ion-i04-stick-deadzone';
+const DEFAULT_STICK_DEADZONE = 0.15;
+const MIN_STICK_DEADZONE = 0.08;
+const MAX_STICK_DEADZONE = 0.28;
+const TRIGGER_DEADZONE = 0.08;
 
 function readBestLap(): number | null {
   try {
@@ -63,6 +68,7 @@ export class InputController {
   private gamepadIndex:number|null=null;
   private gamepadUsedForDriving=false;
   private requireNeutralGamepad=true;
+  private stickDeadzone=InputController.readStickDeadzone();
   onGamepadDisconnect?: () => void;
   onGamepadConnect?: () => void;
   onKeyAction?: (action: 'pause' | 'reset' | 'camera' | 'recover') => void;
@@ -103,6 +109,26 @@ export class InputController {
   private static pressure(value:number|undefined) {
     return Number.isFinite(value)?Math.max(0,Math.min(1,value!)):0;
   }
+  private static readStickDeadzone():number {
+    try {
+      const stored=localStorage.getItem(INPUT_STICK_DEADZONE_KEY);
+      const parsed=stored===null?DEFAULT_STICK_DEADZONE:Number(stored);
+      return Number.isFinite(parsed) && parsed>=MIN_STICK_DEADZONE &&
+        parsed<=MAX_STICK_DEADZONE?parsed:DEFAULT_STICK_DEADZONE;
+    } catch {return DEFAULT_STICK_DEADZONE;}
+  }
+  getStickDeadzone():number {return this.stickDeadzone;}
+  setStickDeadzone(value:number) {
+    if(!Number.isFinite(value))return;
+    const selected=Math.max(MIN_STICK_DEADZONE,Math.min(MAX_STICK_DEADZONE,value));
+    this.stickDeadzone=selected;
+    try{localStorage.setItem(INPUT_STICK_DEADZONE_KEY,String(selected));}catch{/* optional preference */}
+  }
+  private static filteredTrigger(value:number|undefined):number {
+    const pressure=InputController.pressure(value);
+    return pressure<=TRIGGER_DEADZONE?0:
+      (pressure-TRIGGER_DEADZONE)/(1-TRIGGER_DEADZONE);
+  }
   /**
    * Gamepad actions and driving must share the same neutral handshake.
    * In particular a held Start button cannot restart an interrupted race
@@ -110,9 +136,9 @@ export class InputController {
    */
   private readyGamepad(pad:Gamepad):boolean {
     if(!this.requireNeutralGamepad)return true;
-    const neutral=Math.abs(InputController.axis(pad.axes[0]))<.14 &&
-      InputController.pressure(pad.buttons[7]?.value)<.08 &&
-      InputController.pressure(pad.buttons[6]?.value)<.08 &&
+    const neutral=Math.abs(InputController.axis(pad.axes[0]))<this.stickDeadzone &&
+      InputController.pressure(pad.buttons[7]?.value)<=TRIGGER_DEADZONE &&
+      InputController.pressure(pad.buttons[6]?.value)<=TRIGGER_DEADZONE &&
       // D-pad steering is also a driving input. Reconnect with a held
       // direction must remain disarmed until that physical input is released.
       ![0,1,2,3,4,5,9,14,15].some(i=>Boolean(pad.buttons[i]?.pressed));
@@ -135,8 +161,11 @@ export class InputController {
     const racing=this.isRaceActive?.()===true;
     if(focusedButton && !racing && code!=='Escape')return;
     if(focusedButton && racing && code==='Enter')return;
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
+    // Do not suppress browser/system shortcuts (e.g. Ctrl+W, Alt+Left).
+    // Input must also ignore all modifier chords rather than leaving a
+    // previously held steering key latched through a shortcut.
     if(e.ctrlKey || e.altKey || e.metaKey)return;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     if (!e.repeat) {
       if (code === 'Escape' || code === 'KeyP') this.onKeyAction?.('pause');
       if (code === 'KeyR') this.onKeyAction?.('reset');
@@ -177,6 +206,10 @@ export class InputController {
   clear() {
     this.held.clear();
     this.touchHeld.clear();
+    // A new race/resume must not inherit "controller was used" from a prior
+    // run. Otherwise an unused pad unplugged during keyboard play may pause
+    // the new race even when its controls were never used for that run.
+    this.gamepadUsedForDriving=false;
     // Reacquire the neutral controller position after interrupted focus,
     // instead of reviving a previously held throttle or boost trigger.
     this.requireNeutralGamepad=true;
@@ -222,21 +255,31 @@ export class InputController {
       const rawAxis=InputController.axis(pad.axes[0]);
       if(!this.readyGamepad(pad))
         return {throttle,brake,steer,boost};
-      const axis=Math.abs(rawAxis)>.15?
-        Math.sign(rawAxis)*(Math.abs(rawAxis)-.15)/.85:0;
+      const dz=this.stickDeadzone;
+      const axis=Math.abs(rawAxis)>dz?
+        Math.sign(rawAxis)*(Math.abs(rawAxis)-dz)/(1-dz):0;
       // Standard Gamepad D-pad left/right provides a usable fallback for
       // controllers without a reliable left stick. The existing dead-zoned
       // analog axis remains authoritative when no D-pad direction is held.
       const dpad=Number(Boolean(pad.buttons[15]?.pressed))-
         Number(Boolean(pad.buttons[14]?.pressed));
       const padSteer=dpad!==0?dpad:axis;
-      steer=Math.abs(padSteer)>Math.abs(steer)?padSteer:steer;
-      const gas=InputController.pressure(pad.buttons[7]?.value);
-      const braking=InputController.pressure(pad.buttons[6]?.value);
+      // Explicit controller steering overrides a simultaneously held
+      // keyboard direction. The former magnitude competition let a digital
+      // key at |1| defeat every analog correction until that key was released.
+      // A neutral controller leaves keyboard and touch steering available.
+      if(dpad!==0 || Math.abs(axis)>.08)steer=padSteer;
+      const gas=InputController.filteredTrigger(pad.buttons[7]?.value);
+      const braking=InputController.filteredTrigger(pad.buttons[6]?.value);
       throttle=Math.max(throttle,gas,Number(Boolean(pad.buttons[0]?.pressed)));
       brake=Math.max(brake,braking,Number(Boolean(pad.buttons[1]?.pressed)));
-      boost=boost||Boolean(pad.buttons[5]?.pressed);
-      if(Math.abs(padSteer)>.08 || gas>.08 || braking>.08 || boost ||
+      const padBoost=Boolean(pad.buttons[5]?.pressed);
+      boost=boost||padBoost;
+      // Only actual controller input claims controller ownership. Keyboard
+      // or touch Space previously set gamepadUsedForDriving via the merged
+      // "boost" variable, causing a disconnected *unused* gamepad to pause
+      // an otherwise keyboard-driven race.
+      if(Math.abs(padSteer)>.08 || gas>.08 || braking>.08 || padBoost ||
          pad.buttons[0]?.pressed || pad.buttons[1]?.pressed)
         this.gamepadUsedForDriving=true;
     }
