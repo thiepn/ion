@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   BufferGeometry, Float32BufferAttribute, InstancedMesh, Object3D, Color, DoubleSide,
 } from 'three';
+import { CIRCUIT_SECTIONS, ROAD_HALF_WIDTH, trackAt } from '../track';
+import { sectionVisualAt } from './sectionPalette';
 
 type Quality='QUALITY'|'PERFORMANCE';
 
@@ -62,19 +64,39 @@ function RidgeLandscape({quality}:{quality:Quality}){
   );
 }
 
+type MastSpec={x:number;y:number;z:number;height:number;beacon?:string};
 function RadioMasts({quality}:{quality:Quality}){
-  const count=quality==='QUALITY'?54:20;
   const body=useRef<InstancedMesh>(null);
   const tips=useRef<InstancedMesh>(null);
-  const specs=useMemo(()=>Array.from({length:count},(_,i)=>{
-    const angle=(i*.61803398875%1)*Math.PI*2;
-    const dist=250+(i%6)*32;
-    const height=18+(i*31%52);
-    return {
-      x:Math.cos(angle)*dist,z:Math.sin(angle)*dist,
-      y:-25+height/2,height,
-    };
-  }),[count]);
+  const specs=useMemo<MastSpec[]>(()=>{
+    const ambientCount=quality==='QUALITY'?54:20;
+    const background=Array.from({length:ambientCount},(_,i)=>{
+      const angle=(i*.61803398875%1)*Math.PI*2;
+      const dist=250+(i%6)*32;
+      const height=18+(i*31%52);
+      return {
+        x:Math.cos(angle)*dist,z:Math.sin(angle)*dist,
+        y:-25+height/2,height,
+      };
+    });
+    // Five distant industrial relay towers identify exactly the same
+    // source-authored circuit regions as the on-course signs, outside rails.
+    const landmarks=CIRCUIT_SECTIONS.map((section,i)=>{
+      const f=trackAt(section.t);
+      const side=i%2===0?1:-1;
+      const distance=ROAD_HALF_WIDTH+125;
+      const height=58+i%3*13;
+      return {
+        x:f.position.x+f.right.x*distance*side,
+        z:f.position.z+f.right.z*distance*side,
+        y:-25+height/2,
+        height,
+        beacon:sectionVisualAt(section.t).beacon,
+      };
+    });
+    return [...background,...landmarks];
+  },[quality]);
+  const count=specs.length;
   useEffect(()=>{
     if(!body.current||!tips.current)return;
     const dummy=new Object3D();
@@ -89,7 +111,7 @@ function RadioMasts({quality}:{quality:Quality}){
       dummy.scale.set(1.45,1.45,1.45);
       dummy.updateMatrix();
       tips.current.setMatrixAt(i,dummy.matrix);
-      tips.current.setColorAt(i,new Color(i%3===0?'#fda780':'#65bccc'));
+      tips.current.setColorAt(i,new Color(p.beacon??(i%3===0?'#fda780':'#65bccc')));
     }
     body.current.instanceMatrix.needsUpdate=true;
     tips.current.instanceMatrix.needsUpdate=true;
