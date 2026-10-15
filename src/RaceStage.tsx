@@ -10,6 +10,7 @@ type Props = {
   cameraMode: 'CHASE'|'NEAR';
   paint: string;
   showcase: boolean;
+  showcaseView:'THREE_QUARTER'|'SIDE'|'REAR';
   quality: 'QUALITY'|'PERFORMANCE';
   craftKind: 'KESTREL'|'RACER';
   onSnapshot:(snapshot:RaceSnapshot)=>void;
