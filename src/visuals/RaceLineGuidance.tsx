@@ -4,7 +4,7 @@ import {
   Color, DoubleSide, DynamicDrawUsage, InstancedMesh,
   Matrix4, Object3D, Vector3,
 } from 'three';
-import { trackAt, ROAD_HALF_WIDTH, TRACK_LENGTH } from '../track';
+import { requiredBeaconIndex, trackAt, ROAD_HALF_WIDTH, TRACK_LENGTH } from '../track';
 import type { RaceEngine } from '../simulation';
 
 type Transform = { pos: Vector3; yaw: number; scale: [number, number, number] };
@@ -136,7 +136,7 @@ export function RaceLineGuidance({game,quality}:{
     // gates. At the grid the required marker is .25 (index 1), not the
     // starting line; once three gates are earned the target is FINISH (0).
     // Original RaceEngine.checkpoints is the sole owner of those credits.
-    const next=game.checkpoints===3?0:game.checkpoints+1;
+    const next=requiredBeaconIndex(game.checkpoints);
     const key=String(active)+':'+next+':'+game.checkpoints;
     if(previous.current===key)return;
     previous.current=key;
