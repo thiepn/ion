@@ -14,5 +14,7 @@ node scripts/i06-three-lap-drive.mjs
 node scripts/i07-collision-and-fast-laps.mjs
 # Check the source-derived next gate and corner instruction guidance.
 node scripts/i08-guidance-smoke.mjs
+# I09 inspects source-earned acknowledgements, split sums and record integrity.
+node scripts/i09-race-experience-smoke.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build

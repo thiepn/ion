@@ -3,6 +3,16 @@ import { BOOST_PAD_T, headingAt, nearestTrack, RAIL_INNER_OFFSET, TRACK_LENGTH, 
 export type Phase = 'menu' | 'countdown' | 'racing' | 'paused' | 'finished';
 export type FinishReason = 'complete' | 'destroyed' | null;
 export type Controls = { throttle: number; brake: number; steer: number; boost: boolean };
+/** Source-owned acknowledgement, never a second lap/score authority. */
+export type RaceEvent = {
+  serial: number;
+  kind:'sector'|'lap';
+  lap:number;
+  sector:number;
+  time:number;
+  elapsed:number;
+  personalBest:boolean;
+};
 export type RaceSnapshot = {
   phase: Phase;
   reason: FinishReason;
@@ -13,6 +23,10 @@ export type RaceSnapshot = {
   elapsed: number;
   lapTime: number;
   lapTimes: number[];
+  /** Exact original scored S1–S4 splits for each already finished lap. */
+  completedSectorTimes: number[][];
+  raceEvent:RaceEvent|null;
+  newRecordThisRun:boolean;
   bestLap: number | null;
   boost: number;
   shield: number;
@@ -305,6 +319,11 @@ export class RaceEngine {
   elapsed = 0;
   lapTime = 0;
   lapTimes: number[] = [];
+  completedSectorTimes:number[][]=[];
+  raceEvent:RaceEvent|null=null;
+  private eventSerial=0;
+  private runStartBestLap:number|null=null;
+  newRecordThisRun=false;
   boost = 100;
   shield = 100;
   bestLap = readBestLap();
@@ -358,6 +377,10 @@ export class RaceEngine {
     this.elapsed = 0;
     this.lapTime = 0;
     this.lapTimes = [];
+    this.completedSectorTimes=[];
+    this.raceEvent=null;
+    this.runStartBestLap=this.bestLap;
+    this.newRecordThisRun=false;
     this.boost = 100;
     this.shield = 100;
     this.checkpoints = 0;
@@ -432,6 +455,9 @@ export class RaceEngine {
     this.padSurgeSeconds=0;
     this.lastBoostPadDistance=(this.lap-1)+t;
     this.recoveryCount++;
+    // Any prior lap/sector announcement no longer describes the player's
+    // current position after an authoritative checkpoint recovery.
+    this.raceEvent=null;
     return true;
   }
   start() { this.reset(); this.phase = 'countdown'; }
@@ -440,6 +466,8 @@ export class RaceEngine {
     if(this.phase==='racing'||this.phase==='countdown'){
       this.phase='paused';
       this.isBoosting=false;
+      // Resuming later must not replay an already-earned checkpoint banner.
+      this.raceEvent=null;
       // Do not restart a paused high-speed bend with a stale travel angle.
       // The original countdown already freezes distance and race time.
       this.motionHeading=this.heading;
@@ -673,6 +701,15 @@ export class RaceEngine {
         this.lastSector=this.highestScoredCheckpoint+1;
         this.sectorStartTime=crossedTime;
         this.highestScoredCheckpoint++;
+        this.raceEvent={
+          serial:++this.eventSerial,
+          kind:'sector',
+          lap:this.lap,
+          sector:this.highestScoredCheckpoint,
+          time:split,
+          elapsed:this.elapsed,
+          personalBest:false,
+        };
         this.missedCheckpoint=false;
       }else if(previousTrackT<gate && road.t>=gate){
         // The player physically passed this required gate without satisfying
@@ -713,6 +750,23 @@ export class RaceEngine {
       this.lastSectorTime=finalSector;
       this.lastSector=4;
       this.lapTimes.push(completedLap);
+      // Keep only source-earned sector times in race-local result history.
+      // The engine already calculated these four splits; no UI timer or
+      // synthetic scorer is added. Recovery penalties remain in the active
+      // incomplete sector and therefore in the official lap total.
+      this.completedSectorTimes.push([...this.sectorTimes]);
+      const newPersonalBest=this.runStartBestLap===null ||
+        completedLap<this.runStartBestLap;
+      this.newRecordThisRun ||= newPersonalBest;
+      this.raceEvent={
+        serial:++this.eventSerial,
+        kind:'lap',
+        lap:this.lap,
+        sector:4,
+        time:completedLap,
+        elapsed:this.elapsed,
+        personalBest:newPersonalBest,
+      };
       if(this.bestLap===null || completedLap<this.bestLap){
         this.bestLap=completedLap;
         saveBestLap(completedLap);
@@ -726,6 +780,8 @@ export class RaceEngine {
       this.projectionWarningSeconds=0;
       this.wrongWaySeconds=0;
       this.sectorTimes=[];
+      this.lastSectorTime=null;
+      this.lastSector=null;
       this.lap++;
       if(this.lap>MAX_LAPS){
         // The official race clock stops at the exact forward finish crossing;
@@ -779,6 +835,9 @@ export class RaceEngine {
       elapsed: this.elapsed,
       lapTime: this.lapTime,
       lapTimes: [...this.lapTimes],
+      completedSectorTimes:this.completedSectorTimes.map(splits=>[...splits]),
+      raceEvent:this.raceEvent===null?null:{...this.raceEvent},
+      newRecordThisRun:this.newRecordThisRun,
       bestLap: this.bestLap,
       boost: Math.round(this.boost),
       shield: Math.round(this.shield),

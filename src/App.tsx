@@ -393,6 +393,11 @@ export function App() {
     upcomingApproach(data.progress,data.speedKmh):null;
   const showCoach=showFirstRaceHint && (data.phase==='countdown'||
     (data.phase==='racing'&&data.elapsed<17));
+  const recentEvent=data.phase==='racing' && data.raceEvent &&
+    data.elapsed-data.raceEvent.elapsed>=0 &&
+    data.elapsed-data.raceEvent.elapsed<3.1?data.raceEvent:null;
+  const goSignal=data.phase==='racing'&&data.elapsed<1.9 &&
+    data.raceEvent===null;
   const recoveryDestination=data.nextGate===1?'START GRID':
     'EARNED SECTOR '+(data.nextGate-1);
 
@@ -499,6 +504,20 @@ export function App() {
               <span>{approach.distanceM} M · {approach.suggestedKmh} KM/H ADVISORY</span>
             </div>
           )}
+          {!data.trackWarning && (recentEvent||goSignal) && (
+            <div className={'race-milestone'+(recentEvent?.kind==='lap'?' is-lap':'')}
+              role="status" aria-live="polite">
+              <strong>{recentEvent?
+                (recentEvent.kind==='lap'?
+                  'LAP '+String(recentEvent.lap).padStart(2,'0')+' COMPLETE':
+                  'SECTOR '+recentEvent.sector+' CLEARED'):
+                'GO · FOLLOW S1'}</strong>
+              {recentEvent && <span>{formatTime(recentEvent.time)}
+                {recentEvent.kind==='lap' && recentEvent.personalBest?' · PERSONAL BEST':''}
+                {recentEvent.kind==='sector'?' · NEXT '+(recentEvent.sector===3?'FINISH':'S'+(recentEvent.sector+1)):''}
+              </span>}
+            </div>
+          )}
           <div className="race-top">
             <div className="race-value">
               <span className="eyebrow">CURRENT LAP</span>
@@ -522,6 +541,12 @@ export function App() {
             <div className="status-meters">
               <Meter label="SHIELD" amount={data.shield}/>
               <Meter label="BOOST" amount={data.boost} accent="coral"/>
+              {data.phase==='racing' && (data.impact>.55 || data.padSurge || data.shield<=25) && (
+                <span className="race-condition" aria-live="off">
+                  {data.impact>.55?('RAIL IMPACT · SHIELD '+data.shield+'%'):
+                    data.padSurge?'BOOST PAD · SURGE EARNED':'SHIELD CRITICAL'}
+                </span>
+              )}
               <span className="race-note">W / ↑ ACCELERATE · A D / ← → STEER · S / ↓ BRAKE · SPACE BOOST</span>
               {data.recoveryCount>0&&<span className="quiet recovery-count">TRACK RECOVERIES: {data.recoveryCount}</span>}
             </div>
@@ -532,7 +557,10 @@ export function App() {
                 data.padSurge?'BOOST PAD SURGE':'ANTI-GRAVITY DRIVE'}</div>
             </div>
           </div>
-          {data.phase==='countdown' && <div className="countdown" role="status"><span>STARTING IN</span><b>{data.count}</b></div>}
+          {data.phase==='countdown' && <div className="countdown" role="status">
+            <span>{data.count<=1?'GET READY':'STARTING IN'}</span>
+            <b>{data.count}</b>
+          </div>}
         </div>
       )}
 
@@ -636,13 +664,24 @@ export function App() {
         <main className="dialog-panel finish-panel">
           <div className="label-line">RACE CONTROL / {won?'RUN COMPLETE':'VEHICLE DISABLED'}</div>
           <h2>{won?'FINISH':'RUN OVER'}<span className="period">.</span></h2>
-          <p>{won?'Three laps complete. Your best lap is saved locally; this run’s splits are shown below.':'Your shield failed after too many collisions. Try a cleaner line.'}</p>
+          <p>{won?'Three source-scored laps complete. Sector splits and the original personal-best record appear below.':'Your shield failed after too many collisions. Try a cleaner line.'}</p>
+          {won&&data.newRecordThisRun&&(
+            <div className="finish-best" role="status">NEW PERSONAL BEST LAP · {data.bestLap===null?'—':formatTime(data.bestLap)}</div>
+          )}
           {won && <div className="results">
             <div><span>TOTAL TIME</span><strong className="mono">{formatTime(data.elapsed)}</strong></div>
             {data.lapTimes.map((lap,index)=>(
-              <div key={index}><span>LAP {String(index+1).padStart(2,'0')}</span><strong className="mono">{formatTime(lap)}</strong></div>
+              <div className="lap-result" key={index}>
+                <span>LAP {String(index+1).padStart(2,'0')}</span>
+                <div className="lap-result-metrics">
+                  <strong className="mono">{formatTime(lap)}</strong>
+                  <small>{(data.completedSectorTimes[index]||[]).map((split,sector)=>
+                    'S'+(sector+1)+' '+formatTime(split)).join('  ·  ')}</small>
+                </div>
+              </div>
             ))}
             <div><span>PERSONAL BEST LAP</span><strong className="mono">{data.bestLap===null?'—':formatTime(data.bestLap)}</strong></div>
+            <div><span>RECOVERIES</span><strong className="mono">{data.recoveryCount} · +{data.recoveryCount*5} S</strong></div>
           </div>}
           <button type="button" className="cta" onClick={start}>RACE AGAIN <span>↗</span></button>
           <button type="button" className="secondary-action" onClick={mainMenu}>RETURN TO MENU</button>
