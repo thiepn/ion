@@ -176,7 +176,7 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
     pointer-events:auto;
     display:grid;
     gap:8px;
-    height:114px;
+    height:145px;
   }
   .touch-steering {
     width:min(41%,245px);
@@ -237,7 +237,7 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
     pointer-events:auto;
   }
   .touch-recover:disabled { opacity:.37; }
-  .race-bottom { bottom:178px; }
+  .race-bottom { bottom:204px; }
   .status-meters { width:min(165px,29vw); }
   .speed-number { font-size:clamp(42px,7vw,70px); }
   .minimap { display:none; }
@@ -263,15 +263,15 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   .eyebrow { font-size:9px; }
   .race-top .gate-distance { font-size:9px;max-width:43vw;white-space:normal;line-height:1.15; }
   .race-top .split-hud { display:none; }
-  .race-bottom { bottom:177px;left:16px;right:16px; }
+  .race-bottom { bottom:198px;left:16px;right:16px; }
   .status-meters { width:110px;gap:8px; }
   .meter-heading { font-size:9px; }
   .speed-number { font-size:57px; }
   .speed-caption { display:none; }
   .touch-bar { width:calc(100% - 28px);bottom:max(15px,env(safe-area-inset-bottom));gap:10px; }
-  .touch-zone { height:116px;gap:6px; }
-  .touch-steering { width:44%; }
-  .touch-driving { width:48%; }
+  .touch-zone { height:145px;gap:6px; }
+  .touch-steering { width:46%; }
+  .touch-driving { width:49%; }
   .touch-steering .touch-control { font-size:37px; }
   .touch-driving .touch-control { font-size:12px; }
   .track-alert { top:35%;padding:9px 12px; }
@@ -286,21 +286,32 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   .race-value strong { font-size:27px; }
   .race-time { margin-right:0; }
   .race-top .gate-distance,.race-top .split-hud { display:none; }
-  .race-bottom { bottom:119px;left:18px;right:18px; }
+  .race-bottom { bottom:130px;left:18px;right:18px; }
   .status-meters { width:140px; }
   .speed-number { font-size:44px; }
   .speed-unit,.speed-caption { display:none; }
   .touch-bar { bottom:max(7px,env(safe-area-inset-bottom));width:min(770px,calc(100% - 54px));gap:24px; }
-  .touch-zone { height:94px; }
-  .touch-steering { width:min(36%,220px); }
-  .touch-driving { width:min(40%,238px); }
+  .touch-zone { height:88px; }
+  /* A short landscape viewport must not compress the stacked BRAKE/GO
+     hit targets to ~40px. Distribute all three actions horizontally. */
+  .touch-driving {
+    width:min(52%,310px);
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:1fr;
+  }
+  .touch-driving .touch-control:nth-child(1) { grid-column:1;grid-row:1; }
+  .touch-driving .touch-control:nth-child(2) { grid-column:3;grid-row:1; }
+  .touch-driving .touch-control:nth-child(3) { grid-column:2;grid-row:1; }
+
+  .touch-steering { width:min(38%,245px); }
+  .touch-driving { width:min(52%,310px); }
   .touch-recover { top:-32px;height:25px;font-size:9px; }
   .menu-panel h1 { font-size:clamp(47px,9vh,70px); }
 }
 @media (max-height:660px) and (orientation:portrait) {
-  .race-bottom { bottom:147px; }
-  .touch-zone { height:93px; }
-  .touch-recover { top:-34px;height:27px; }
+  .race-bottom { bottom:191px; }
+  .touch-zone { height:139px; }
+  .touch-recover { top:-37px;height:30px; }
   .race-top .quiet:not(.gate-distance) { display:none; }
 }
 @media (prefers-reduced-motion:reduce) {
