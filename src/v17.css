@@ -528,3 +528,21 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
 @media(prefers-reduced-motion:reduce) {
   .race-milestone,.finish-best {animation:none;transition:none}
 }
+
+.race-condition {
+  display:block;
+  width:max-content;
+  max-width:100%;
+  padding:4px 7px;
+  border-left:2px solid #f4a67a;
+  background:rgba(30,24,19,.76);
+  color:#ffd9bd;
+  font:650 9px/1.35 'IBM Plex Mono',monospace;
+  letter-spacing:.015em;
+}
+@media(max-width:680px) and (orientation:portrait) {
+  .race-condition {font-size:8px;max-width:110px;}
+}
+@media(orientation:landscape) and (max-height:540px) {
+  .race-condition {font-size:8px;max-width:140px;}
+}
