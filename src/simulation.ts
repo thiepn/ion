@@ -443,7 +443,13 @@ export class RaceEngine {
     // toward the player's screen right. The old positive sign flipped both
     // keyboard and touch steering. Brake-turning increases tight-corner
     // authority while holding full throttle is deliberately less twitchy.
-    const steeringRate=(.70+speedFactor*.92)*(controls.brake>.05?1.48:1);
+    // Steering is velocity-coupled: stationary hovercraft must not spin in
+    // place from a held direction input. Preserve enough authority at low
+    // speed to escape a wall and enough at high speed to negotiate chicanes.
+    // Right input remains negative yaw for the source chase-camera convention.
+    const motionAuthority=Math.min(1,this.speed/6);
+    const steeringRate=(.40+speedFactor*1.20)*
+      motionAuthority*(controls.brake>.05?1.35:1);
     this.heading=wrapAngle(this.heading-this.steering*steeringRate*dt);
     const roadBefore=nearestTrack(this.position.x,this.position.z,this.previousT);
     // Gentle tangent alignment only when steering is almost neutral; the
@@ -457,7 +463,10 @@ export class RaceEngine {
 
     const road=nearestTrack(this.position.x,this.position.z,roadBefore.t);
     this.position.y += (road.y + 2.5 - this.position.y) * Math.min(1, dt * 7);
-    const bank=-this.steering*speedFactor*(controls.brake>.05?.17:.27);
+    // Yaw-right is negative world Y rotation, so the screen-right wing is
+    // local -X. Positive roll lowers that wing; V17's negative roll banked
+    // *away* from the player's requested right turn.
+    const bank=this.steering*speedFactor*(controls.brake>.05?.17:.27);
     this.roll+=(bank-this.roll)*(1-Math.exp(-dt*7.4));
     const desiredPitch=-Math.min(.17,this.speed/620)+(controls.brake>.05?.075:0);
     this.pitch+=(desiredPitch-this.pitch)*(1-Math.exp(-dt*5.2));
