@@ -438,6 +438,9 @@ export class RaceEngine {
     if(this.phase==='racing'||this.phase==='countdown'){
       this.phase='paused';
       this.isBoosting=false;
+      // Do not restart a paused high-speed bend with a stale travel angle.
+      // The original countdown already freezes distance and race time.
+      this.motionHeading=this.heading;
     }else if(this.phase==='paused'){
       // Returning from an interrupted high-speed race should not resume at
       // full velocity before the player can see/reacquire the controls.
@@ -450,6 +453,7 @@ export class RaceEngine {
   update(rawDelta: number, controls: Controls) {
     const dt = Math.min(rawDelta, 0.045);
     if (this.phase === 'countdown') {
+      this.motionHeading=this.heading;
       this.count = Math.max(0, this.count - dt);
       if (this.count <= 0) this.phase = 'racing';
       return;
@@ -745,7 +749,9 @@ export class RaceEngine {
     if (onPad && this.usedBoostPad !== crossedPad &&
       distance - this.lastBoostPadDistance > .12) {
       this.boost = Math.min(100, this.boost + 24);
-      this.speed = Math.min(112, this.speed + 16);
+      // A physical pad can add speed up to its 112 m/s surge target, but
+      // must not *reduce* an already-faster 115 m/s active-boost run.
+      this.speed=Math.max(this.speed,Math.min(112,this.speed+16));
       this.padSurgeSeconds=.9;
       this.usedBoostPad = crossedPad;
       this.lastBoostPadDistance = distance;
