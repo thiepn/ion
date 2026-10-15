@@ -34,7 +34,8 @@ try{
   assert.notEqual(painted,gray,'always clone shared Kenney material');
   assert.equal(gray.color.getHexString(),old.getHexString(),
     'pinned original GLB material must not be mutated');
-  assert.ok(painted.color.distanceTo(target)<gray.color.distanceTo(target),
+  const rgbDistance=(a,b)=>Math.hypot(a.r-b.r,a.g-b.g,a.b-b.b);
+  assert.ok(rgbDistance(painted.color,target)<rgbDistance(gray.color,target),
     'actual visible light paint must move toward selected swatch');
   assert.equal(painted.metalness,gray.metalness);
   assert.equal(painted.roughness,gray.roughness);
