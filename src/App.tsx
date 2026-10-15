@@ -684,7 +684,7 @@ export function App() {
               'PREVIOUS RECORD: '+formatTime(data.recordToBeat)}
             {' · '}{data.completedLapChallenges.filter(lap=>lap.clean).length}/3 CLEAN LAPS
             {' · '}{data.completedLapChallenges.filter(lap=>lap.pads===3).length}/3 FULL-PAD LAPS
-          </p>
+          </p>}
           {won && <div className="results">
             <div><span>TOTAL TIME</span><strong className="mono">{formatTime(data.elapsed)}</strong></div>
             {data.lapTimes.map((lap,index)=>(
