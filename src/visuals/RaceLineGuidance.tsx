@@ -116,7 +116,7 @@ export function RaceLineGuidance({game,quality}:{
     });
     return buildMatrices(transforms);
   },[]);
-  const previous=useRef(-1);
+  const previous=useRef('');
   const lastUpdate=useRef(0);
   useEffect(()=>{
     const mesh=gateRef.current;
@@ -125,21 +125,27 @@ export function RaceLineGuidance({game,quality}:{
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     mesh.instanceMatrix.needsUpdate=true;
     mesh.computeBoundingSphere();
-    previous.current=-1;
+    previous.current='';
   },[gateTransforms]);
   useFrame(({clock})=>{
     const mesh=gateRef.current;
     if(!mesh || clock.elapsedTime-lastUpdate.current<.13)return;
     lastUpdate.current=clock.elapsedTime;
-    const active=game.phase==='racing'||game.phase==='countdown';
-    // Four beacon pairs correspond to the upcoming sectors 0..3. At the
-    // start of the run sector 0, not sector 1, must be the next target.
-    const next=active?Math.min(3,game.checkpoints):0;
-    if(previous.current===next)return;
-    previous.current=next;
+    const active=game.phase==='racing'||game.phase==='countdown'||game.phase==='paused';
+    // The index 0 is the FINISH beacon, indexes 1..3 are the quarter
+    // gates. At the grid the required marker is .25 (index 1), not the
+    // starting line; once three gates are earned the target is FINISH (0).
+    // Original RaceEngine.checkpoints is the sole owner of those credits.
+    const next=game.checkpoints===3?0:game.checkpoints+1;
+    const key=String(active)+':'+next+':'+game.checkpoints;
+    if(previous.current===key)return;
+    previous.current=key;
     for(let i=0;i<8;i++){
       const sector=Math.floor(i/2);
-      mesh.setColorAt(i,new Color(sector===next?'#ffa56d':sector<next?'#74e0ce':'#456f80'));
+      const earned=sector>0&&sector<=game.checkpoints;
+      mesh.setColorAt(i,new Color(
+        active&&sector===next?'#ffa56d':earned?'#74e0ce':'#456f80'
+      ));
     }
     if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   });
