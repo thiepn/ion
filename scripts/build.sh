@@ -16,5 +16,7 @@ node scripts/i07-collision-and-fast-laps.mjs
 node scripts/i08-guidance-smoke.mjs
 # I09 inspects source-earned acknowledgements, split sums and record integrity.
 node scripts/i09-race-experience-smoke.mjs
+# I10 verifies real earned pad/clean lap and strict personal-best claims.
+node scripts/i10-authentic-replayability.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build
