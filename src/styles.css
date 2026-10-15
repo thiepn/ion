@@ -95,7 +95,6 @@ h1,h2,p{margin-top:0}
 .help-dialog dl>div{border-bottom:1px solid #41596a;padding:9px 0}
 .help-dialog dt{font:700 9px 'IBM Plex Mono';color:#829fad;margin-bottom:4px}
 .help-dialog dd{margin:0;font:700 15px 'Inter'}
-.touch-bar{display:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:800px){
   .masthead{padding:22px}
@@ -128,10 +127,6 @@ h1,h2,p{margin-top:0}
   .speed-number{font-size:clamp(52px,16vw,88px)}
   .speed-unit{font-size:12px}
   .speed-caption{display:none}
-  .touch-bar{position:absolute;bottom:35px;left:14px;right:14px;z-index:5;display:flex;justify-content:space-between;gap:20px;pointer-events:none}
-  .touch-group{display:flex;gap:7px;pointer-events:auto}
-  .touch-control{min-width:46px;height:56px;background:rgba(9,26,39,.76);border:1px solid rgba(148,226,234,.62);color:#e8f8f9;padding:0 12px;touch-action:none;user-select:none;font:800 13px 'Inter';letter-spacing:.03em}
-  .touch-control:active{background:#4f939a}
   .dialog-panel{left:22px;width:calc(100vw - 44px)}
   .dialog-panel h2{font-size:80px}
   .countdown b{font-size:118px}
@@ -267,32 +262,22 @@ h1,h2,p{margin-top:0}
  .identity-detail{font-size:7px}
  .race-top{top:52px}
  .race-bottom{bottom:78px}
- .touch-bar{bottom:9px}
- .touch-control{height:49px}
  .site-footer{display:none}
 }
 
 /* V7: source-backed sector feedback and mobile track rescue. */
 .split-hud{font-variant-numeric:tabular-nums;color:#eac49e!important;font-size:10px;white-space:nowrap}
 .recovery-count{font-size:9px;color:#f6b18a!important;letter-spacing:.06em}
-.secondary-action:disabled,.touch-control:disabled{opacity:.38;cursor:not-allowed}
+.secondary-action:disabled{opacity:.38;cursor:not-allowed}
 .dialog-panel>.secondary-action>span{font:600 10px 'IBM Plex Mono',monospace;color:#eba87f;white-space:nowrap}
-.touch-recover{position:absolute;bottom:70px;left:0;z-index:3;
- height:32px;min-width:81px;font:700 9px 'IBM Plex Mono',monospace;letter-spacing:.08em;
- border-color:#e9ae83;color:#ffd0a5}
 @media(max-width:580px){
  .race-top .split-hud{font-size:9px;margin-top:3px}
- .touch-bar{gap:8px;left:9px;right:9px}
- .touch-group{gap:4px}
- .touch-control{min-width:40px;padding:0 7px;font-size:11px}
- .touch-recover{font-size:9px;padding:0 9px}
  .race-bottom{bottom:137px}
  .status-meters{width:39vw}
  .recovery-count{font-size:8px}
  .dialog-panel>.secondary-action>span{font-size:8px}
 }
 @media(orientation:landscape) and (max-height:500px){
- .touch-recover{bottom:56px}
  .race-bottom{bottom:60px}
  .split-hud{display:none}
  .recovery-count{display:none}
@@ -300,22 +285,6 @@ h1,h2,p{margin-top:0}
 
 /* V8: practical controls on coarse-pointer tablets and convertible screens. */
 @media (pointer:coarse) and (min-width:581px){
-  .touch-bar{
-    display:flex;position:absolute;left:22px;right:22px;bottom:44px;z-index:7;
-    justify-content:space-between;align-items:flex-end;gap:18px;pointer-events:none;
-  }
-  .touch-group{display:flex;gap:10px;pointer-events:auto}
-  .touch-control{
-    min-width:66px;height:68px;padding:0 13px;touch-action:none;
-    color:#ecf8fc;background:rgba(8,25,39,.82);
-    border:1px solid rgba(136,223,233,.65);user-select:none;
-    font:800 13px 'Inter',sans-serif;
-  }
-  .touch-control:active{background:#327983}
-  .touch-recover{
-    position:absolute;bottom:81px;left:0;height:36px;min-width:90px;
-    color:#ffd2aa;border-color:#f2b588;font:700 10px 'IBM Plex Mono',monospace;
-  }
   .race-bottom{bottom:158px}
   .race-note{display:none}
   .site-footer{padding-bottom:10px}

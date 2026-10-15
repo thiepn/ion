@@ -39,60 +39,150 @@ function Meter({ label, amount, accent }: {label:string;amount:number;accent?:'c
   );
 }
 
-function TouchButton({ code, text, input }: { code:string; text:string; input:InputController }) {
-  // Pointer capture keeps delivering moves to the original button. A player
-  // sliding a thumb from LEFT to RIGHT should switch the *original* control,
-  // not have to lift and press again. InputController stays the only input
-  // owner, keyed by the actual browser pointer ID.
-  const activePointers=useRef<Map<number,string|null>>(new Map());
+type TouchAction = { code: string; text: string; label: string };
+const STEERING_ACTIONS: readonly TouchAction[] = [
+  {code:'ArrowLeft',text:'←',label:'Steer left'},
+  {code:'ArrowRight',text:'→',label:'Steer right'},
+];
+const DRIVING_ACTIONS: readonly TouchAction[] = [
+  {code:'Space',text:'BOOST',label:'Boost'},
+  {code:'ArrowUp',text:'GO',label:'Accelerate'},
+  {code:'ArrowDown',text:'BRAKE',label:'Brake'},
+];
+
+/**
+ * One pointer owner per thumb zone. React's pressed styles and the original
+ * InputController are updated from the same current pointer→action mapping.
+ * Capturing the zone, not its starting button, makes a slide between controls
+ * unambiguous. No second steering engine or separate simulation state.
+ */
+function TouchZone({input,actions,className,label,keyboardBase}:{
+  input:InputController;
+  actions:readonly TouchAction[];
+  className:string;
+  label:string;
+  keyboardBase:number;
+}) {
+  const heldByPointer=useRef<Map<number,string|null>>(new Map());
+  const [pressed,setPressed]=useState<Set<string>>(()=>new Set());
+
+  const syncPressed=()=>{
+    setPressed(new Set([...heldByPointer.current.values()].filter((code):code is string=>code!==null)));
+  };
   const release=(pointerId:number)=>{
-    const held=activePointers.current.get(pointerId);
-    if(held)input.release(held,pointerId);
-    activePointers.current.delete(pointerId);
+    const old=heldByPointer.current.get(pointerId);
+    if(old===undefined)return;
+    if(old!==null)input.release(old,pointerId);
+    heldByPointer.current.delete(pointerId);
+    syncPressed();
+  };
+  const transfer=(pointerId:number,next:string|null)=>{
+    const old=heldByPointer.current.get(pointerId);
+    if(old===undefined||old===next)return;
+    if(old!==null)input.release(old,pointerId);
+    if(next!==null)input.press(next,pointerId);
+    // Preserve the physical pointer even when it leaves the zone. If it
+    // returns while captured, the nearest button can rearm immediately.
+    heldByPointer.current.set(pointerId,next);
+    syncPressed();
+  };
+  const resetAll=()=>{
+    const current=heldByPointer.current;
+    current.forEach((code,pointerId)=>{if(code!==null)input.release(code,pointerId);});
+    current.clear();
+    syncPressed();
   };
   useEffect(()=>{
-    const active=activePointers.current;
+    // The browser may change orientation or hide the page without issuing
+    // pointercancel on every touched button. Clear both pressed artwork and
+    // held input immediately so returning cannot resume ghost acceleration.
+    const onHidden=()=>{if(document.hidden)resetAll();};
+    window.addEventListener('blur',resetAll);
+    window.addEventListener('pagehide',resetAll);
+    window.addEventListener('orientationchange',resetAll);
+    document.addEventListener('visibilitychange',onHidden);
     return ()=>{
-      // Removing a captured button can omit pointerup. Do not leave a
-      // stale steer/throttle held after unmount or interruption.
-      active.forEach((held,id)=>{if(held)input.release(held,id);});
-      active.clear();
+      window.removeEventListener('blur',resetAll);
+      window.removeEventListener('pagehide',resetAll);
+      window.removeEventListener('orientationchange',resetAll);
+      document.removeEventListener('visibilitychange',onHidden);
+      // Cleanup releases every live physical/key pointer without setState.
+      heldByPointer.current.forEach((code,id)=>{if(code!==null)input.release(code,id);});
+      heldByPointer.current.clear();
     };
-  },[code,input]);
-  return <button className="touch-control" type="button"
-    onPointerDown={event=>{
-      event.preventDefault();
-      if(event.pointerType==='mouse' && event.button!==0)return;
-      if(activePointers.current.has(event.pointerId))return;
-      activePointers.current.set(event.pointerId,code);
-      input.press(code,event.pointerId);
-      try{event.currentTarget.setPointerCapture(event.pointerId);}
-      catch{release(event.pointerId);}
-    }}
-    onPointerMove={event=>{
-      if(!activePointers.current.has(event.pointerId) ||
-         (code!=='ArrowLeft' && code!=='ArrowRight'))return;
-      const rect=event.currentTarget.parentElement?.getBoundingClientRect();
-      if(!rect)return;
-      // Give one-thumb steering a narrow grace edge; moving completely out
-      // of the steering zone safely neutralizes the held steering intent.
-      const inReach=event.clientX>=rect.left-12 &&
-        event.clientX<=rect.right+12 &&
-        event.clientY>=rect.top-12 &&
-        event.clientY<=rect.bottom+12;
-      const next=inReach?
-        (event.clientX<rect.left+rect.width*.5?'ArrowLeft':'ArrowRight'):null;
-      const previous=activePointers.current.get(event.pointerId);
-      if(previous===next)return;
-      if(previous)input.release(previous,event.pointerId);
-      if(next)input.press(next,event.pointerId);
-      activePointers.current.set(event.pointerId,next);
-    }}
-    onPointerUp={event=>release(event.pointerId)}
-    onPointerCancel={event=>release(event.pointerId)}
-    onLostPointerCapture={event=>release(event.pointerId)}
-    onContextMenu={event=>event.preventDefault()}
-    aria-label={text}>{text}</button>;
+  // InputController lifetime is the same as the app; no stale handlers.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[input]);
+
+  const actionAt=(zone:HTMLDivElement,x:number,y:number):string|null=>{
+    const bounds=zone.getBoundingClientRect();
+    const tolerance=12;
+    if(x<bounds.left-tolerance||x>bounds.right+tolerance||
+       y<bounds.top-tolerance||y>bounds.bottom+tolerance)return null;
+    // Within the thumb zone the nearest action wins, including the small
+    // physical gap between buttons, avoiding dead strips during a slide.
+    let best:string|null=null,dist=Infinity;
+    zone.querySelectorAll<HTMLButtonElement>('.touch-control').forEach(button=>{
+      const r=button.getBoundingClientRect();
+      const dx=Math.max(r.left-x,0,x-r.right);
+      const dy=Math.max(r.top-y,0,y-r.bottom);
+      const d=dx*dx+dy*dy;
+      if(d<dist){dist=d;best=button.dataset.action??null;}
+    });
+    return best;
+  };
+
+  return (
+    <div className={'touch-zone '+className} role="group" aria-label={label}
+      onPointerDown={event=>{
+        if(event.pointerType==='mouse'&&event.button!==0)return;
+        event.preventDefault();
+        if(heldByPointer.current.has(event.pointerId))return;
+        const action=actionAt(event.currentTarget,event.clientX,event.clientY);
+        if(!action)return;
+        heldByPointer.current.set(event.pointerId,action);
+        input.press(action,event.pointerId);
+        syncPressed();
+        try{event.currentTarget.setPointerCapture(event.pointerId);}
+        catch{release(event.pointerId);}
+      }}
+      onPointerMove={event=>{
+        if(!heldByPointer.current.has(event.pointerId))return;
+        transfer(event.pointerId,actionAt(event.currentTarget,event.clientX,event.clientY));
+      }}
+      onPointerUp={event=>release(event.pointerId)}
+      onPointerCancel={event=>release(event.pointerId)}
+      onLostPointerCapture={event=>release(event.pointerId)}
+      onContextMenu={event=>event.preventDefault()}>
+      {actions.map((action,index)=>{
+        const keyboardPointer=keyboardBase-index;
+        const active=pressed.has(action.code);
+        return (
+          <button key={action.code} type="button" data-action={action.code}
+            className={'touch-control'+(active?' is-held':'')}
+            aria-label={action.label} aria-pressed={active}
+            onKeyDown={event=>{
+              if(event.code!=='Space'&&event.code!=='Enter')return;
+              event.preventDefault();
+              event.stopPropagation();
+              if(event.repeat||heldByPointer.current.has(keyboardPointer))return;
+              heldByPointer.current.set(keyboardPointer,action.code);
+              input.press(action.code,keyboardPointer);
+              syncPressed();
+            }}
+            onKeyUp={event=>{
+              if(event.code!=='Space'&&event.code!=='Enter')return;
+              event.preventDefault();
+              event.stopPropagation();
+              release(keyboardPointer);
+            }}
+            onBlur={()=>release(keyboardPointer)}>
+            {action.text}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function App() {
@@ -124,6 +214,7 @@ export function App() {
   const [rendererEpoch,setRendererEpoch]=useState(0);
   const [help,setHelp]=useState(false);
   const [garage,setGarage]=useState(false);
+  const [touchResetSerial,setTouchResetSerial]=useState(0);
   const [craftKind,setCraftKind]=useState<CraftKind>(()=>{
     try {return localStorage.getItem('ion-v4-craft')==='RACER'?'RACER':'KESTREL';}catch{return 'KESTREL';}
   });
@@ -190,8 +281,14 @@ export function App() {
   },[game,input,refresh]);
   const toggleCamera=useCallback(()=>setCameraMode(m=>m==='CHASE'?'NEAR':'CHASE'),[]);
   const recover=useCallback(()=>{
-    if(game.recover())refresh();
-  },[game,refresh]);
+    if(!game.recover())return;
+    // Recovery teleports the craft. Releasing every held input, then
+    // remounting both thumb zones prevents a finger held across recovery
+    // from steering/accelerating the newly recovered vehicle on its own.
+    input.clear();
+    setTouchResetSerial(n=>n+1);
+    refresh();
+  },[game,input,refresh]);
 
   useEffect(()=>{
     input.attach();
@@ -516,7 +613,7 @@ export function App() {
               <div><dt>RESTART</dt><dd>R</dd></div>
               <div><dt>TRACK RECOVERY</dt><dd>T / GAMEPAD LB</dd></div>
             </dl>
-            <p>Gamepad left stick, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls appear on small screens. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
+            <p>Gamepad left stick, triggers, Start (pause), Y (camera), X (restart), and LB (recover) are supported. Touch controls use left-thumb steering and right-thumb GO, BRAKE and BOOST; slide between buttons without lifting. Orange track pads replenish boost. Track recovery returns you to your last earned sector, with a 5-second and shield penalty.</p>
             <p>Optional synthesized race audio can be switched on or off with AUDIO in the header. Sound starts muted each session, uses no external recordings, and never affects race scoring. Release an empty boost trigger to recharge, or cross an orange pad for a genuine refill.</p>
             <button className="cta" type="button" onClick={()=>setHelp(false)}>CLOSE MANUAL <span>×</span></button>
           </section>
@@ -525,15 +622,10 @@ export function App() {
 
       {isRace && (
         <div className="touch-bar" aria-label="Thumb driving controls">
-          <div className="touch-zone touch-steering" role="group" aria-label="Steering">
-            <TouchButton code="ArrowLeft" text="←" input={input}/>
-            <TouchButton code="ArrowRight" text="→" input={input}/>
-          </div>
-          <div className="touch-zone touch-driving" role="group" aria-label="Throttle, brake and boost">
-            <TouchButton code="Space" text="BOOST" input={input}/>
-            <TouchButton code="ArrowUp" text="GO" input={input}/>
-            <TouchButton code="ArrowDown" text="BRAKE" input={input}/>
-          </div>
+          <TouchZone key={'steer-'+touchResetSerial} input={input} actions={STEERING_ACTIONS}
+            className="touch-steering" label="Steering" keyboardBase={-101}/>
+          <TouchZone key={'drive-'+touchResetSerial} input={input} actions={DRIVING_ACTIONS}
+            className="touch-driving" label="Throttle, brake and boost" keyboardBase={-201}/>
           <button type="button" className="touch-recover" disabled={!data.recoveryReady}
             onClick={recover} aria-label="Recover to most recent earned checkpoint with penalty">
             RECOVER · +5 S
