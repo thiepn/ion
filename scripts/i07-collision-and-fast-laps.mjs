@@ -128,6 +128,43 @@ try{
   }
   pass('boost strips share track authority',String(BOOST_PAD_T.length));
 
+  // Earn S1 by physically driving the original engine from the real grid.
+  // Recovery must respawn at that *earned* quarter gate, not at the current
+  // lateral wall location, and cannot mint a subsequent S2/S3 credit.
+  const recoveryGame=new RaceEngine();
+  recoveryGame.start();
+  while(recoveryGame.phase==='countdown')recoveryGame.update(1/60,idle);
+  let recoverySteps=0;
+  while(recoveryGame.checkpoints<1 &&
+    recoveryGame.phase==='racing'&&recoverySteps++<60*85){
+    const look=clamp(17+recoveryGame.speed*.5,19,30);
+    const ahead=trackAt((recoveryGame.previousT+look/TRACK_LENGTH)%1).position;
+    const steer=clamp(-angle(Math.atan2(
+      ahead.x-recoveryGame.position.x,ahead.z-recoveryGame.position.z
+    )-recoveryGame.heading)*2.4,-1,1);
+    const throttle=recoveryGame.speed<16.5?.62:0;
+    const brake=recoveryGame.speed>18.5?.22:0;
+    recoveryGame.update(1/60,{throttle,brake,steer,boost:false});
+  }
+  assert.equal(recoveryGame.checkpoints,1,
+    'real first quarter gate must be earned before recovery');
+  const beforeRecoveryTime=recoveryGame.elapsed;
+  const beforeRecoveryShield=recoveryGame.shield;
+  assert.equal(recoveryGame.recover(),true);
+  const gatePosition=trackAt(.25).position;
+  assert.ok(recoveryGame.position.distanceToSquared(
+    gatePosition.clone().add({x:0,y:2.5,z:0}))<.0001,
+    'last earned quarter must own recovery position');
+  assertNear(recoveryGame.previousT,.25,.000001,'recovery progress');
+  assert.equal(recoveryGame.checkpoints,1);
+  assert.equal(recoveryGame.recoveryCount,1);
+  assert.equal(recoveryGame.speed,0);
+  assert.ok(recoveryGame.elapsed>=beforeRecoveryTime+5);
+  assert.ok(recoveryGame.shield<beforeRecoveryShield);
+  assert.equal(recoveryGame.recover(),false,'recovery cooldown required');
+  pass('earned-quarter recovery position and penalties',
+    'physically earned S1 in '+recoverySteps+' updates');
+
   // Faster than the I06 16.5m/s baseline: corner-aware pilot uses only
   // standard controls, physical RaceEngine updates and the real track.
   const game=new RaceEngine();
