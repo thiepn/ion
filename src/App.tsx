@@ -289,6 +289,7 @@ export function App() {
     catch{/* optional local first-run preference */}
   },[]);
   const [garage,setGarage]=useState(false);
+  const [showcaseView,setShowcaseView]=useState<'THREE_QUARTER'|'SIDE'|'REAR'>('THREE_QUARTER');
   const [pendingRaceAction,setPendingRaceAction]=useState<'restart'|'menu'|null>(null);
   const confirmButtonRef=useRef<HTMLButtonElement|null>(null);
   const resumeButtonRef=useRef<HTMLButtonElement|null>(null);
@@ -500,7 +501,8 @@ export function App() {
               </div>
             }>
               <RaceStage game={game} input={input} cameraMode={cameraMode}
-                paint={paint} showcase={garage} quality={quality} craftKind={craftKind}
+                paint={paint} showcase={garage} showcaseView={showcaseView}
+                quality={quality} craftKind={craftKind}
                 onSnapshot={onTelemetry} onRendererFailure={onRendererFailure}/>
             </Suspense>
           )}
@@ -699,7 +701,21 @@ export function App() {
           <div className="menu-rule"><span>02 — VEHICLE CUSTOMIZATION</span><span>GARAGE</span></div>
           <p className="intro-overline">HANGAR / SELECT YOUR MACHINE</p>
           <h2>ION <em>{craftKind==='KESTREL'?'KESTREL':'RIFT'}</em></h2>
-          <p className="intro-copy">Two distinct racing hulls. Kestrel uses original detailed ION geometry; Rift adapts a verified CC0 Kenney craft. Both retain the same handling and racing rules. Color and craft choices are saved locally.</p>
+          <p className="intro-copy">Two distinct racing hulls: an original split-wing Kestrel and a licensed Kenney-based Rift with ION engine pods. Both use the exact same racing physics. Vehicle and paint choices are saved locally.</p>
+          <div className="garage-inspection" role="group" aria-label="Live 3D craft inspection angle">
+            <div className="paint-title">LIVE 3D VIEW <span>CHOOSE AN ANGLE</span></div>
+            <div className="garage-view-buttons">
+              {([
+                ['THREE_QUARTER','THREE-QUARTER'],
+                ['SIDE','SIDE PROFILE'],
+                ['REAR','REAR ENGINES'],
+              ] as const).map(([view,label])=>
+                <button key={view} type="button" aria-pressed={showcaseView===view}
+                  className={showcaseView===view?'active':''}
+                  onClick={()=>setShowcaseView(view)}>{label}</button>
+              )}
+            </div>
+          </div>
           <div className="craft-picker" role="group" aria-label="Hovercraft selection">
             <button type="button" className={craftKind==='KESTREL'?'active':''} aria-pressed={craftKind==='KESTREL'} onClick={()=>chooseCraft('KESTREL')}><b>01 / KESTREL</b><small>ION ORIGINAL</small></button>
             <button type="button" className={craftKind==='RACER'?'active':''} aria-pressed={craftKind==='RACER'} onClick={()=>chooseCraft('RACER')}><b>02 / RIFT</b><small>CC0 KENNEY BASE</small></button>
@@ -709,7 +725,9 @@ export function App() {
             <div><span>BOOST CAP</span><b>414 KM/H</b></div>
             <div><span>DRIVE CLASS</span><b>ANTI-GRAV</b></div>
           </div>
-          <div className="paint-title">FINISH <span>{PAINTS.find(p=>p.hex===paint)?.detail}</span></div>
+          <div className="paint-title">ACTUAL VEHICLE FINISH
+            <span>{PAINTS.find(p=>p.hex===paint)?.detail}</span>
+          </div>
           <div className="paint-palette" role="group" aria-label="Vehicle color selection">
             {PAINTS.map(option => (
               <button key={option.name} type="button"
@@ -723,6 +741,12 @@ export function App() {
               </button>
             ))}
           </div>
+          <p className="garage-live-note" aria-live="polite">
+            {craftKind==='KESTREL'?'KESTREL / ORIGINAL SPLIT WING':'RIFT / LICENSED KENNEY HULL'}
+            {' · '}{PAINTS.find(p=>p.hex===paint)?.name}
+            {' · '}{showcaseView==='THREE_QUARTER'?'THREE-QUARTER':
+              showcaseView==='SIDE'?'SIDE':'REAR'} VIEW
+          </p>
           <div className="graphics-choice">
             <div className="paint-title">RENDER QUALITY <span>{quality==='QUALITY'?'REFLECTIONS / BLOOM':'OPTIMIZED / LOW EFFECTS'}</span></div>
             <div className="craft-picker" role="group" aria-label="Graphics quality">

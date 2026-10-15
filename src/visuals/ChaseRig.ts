@@ -3,6 +3,7 @@ import { nearestTrack, RAIL_INNER_OFFSET, trackAt } from '../track';
 import type { RaceEngine } from '../simulation';
 
 type CameraMode='CHASE'|'NEAR';
+export type ShowcaseView='THREE_QUARTER'|'SIDE'|'REAR';
 const tmpPosition=new Vector3();
 const tmpLook=new Vector3();
 const tmpAhead=new Vector3();
@@ -20,6 +21,7 @@ export class ChaseRig {
   update(
     camera:Camera,game:RaceEngine,delta:number,
     mode:CameraMode,showcase:boolean,time:number,reducedMotion:boolean,
+    view:ShowcaseView='THREE_QUARTER',
   ){
     const dt=Math.min(.08,Math.max(0,delta));
     const speed=Math.min(1,game.speed/105);
@@ -37,8 +39,9 @@ export class ChaseRig {
     );
     this.previousVehicle.copy(game.position);
     this.recoverySerial=game.recoveryCount;
-    const modeChanged=this.lastMode!==mode;
-    this.lastMode=mode; this.oldPhase=phase;
+    const cameraPreset=orbit?mode+':'+view:mode;
+    const modeChanged=this.lastMode!==cameraPreset;
+    this.lastMode=cameraPreset; this.oldPhase=phase;
 
     // The pose should not teleport on showroom/race transitions, but on a fresh
     // start the camera seeds its smoothed look target to the actual vehicle.
@@ -64,10 +67,24 @@ export class ChaseRig {
     const directionalZ=Math.cos(this.heading)*distance;
 
     if(orbit){
-      const spin=time*.21;
-      tmpPosition.set(game.position.x+Math.sin(spin)*13,
-        game.position.y+6.5,game.position.z+Math.cos(spin)*13);
-      tmpLook.set(game.position.x,game.position.y+.45,game.position.z);
+      // Stable inspection angles instead of an uncontrolled full 360°
+      // orbit. A tiny reduced-motion-aware sway retains presence without
+      // hiding the selected paint or presenting the rear as the front.
+      const anchor=view==='SIDE'?Math.PI/2:
+        view==='REAR'?Math.PI:.82;
+      // Camera angles must be relative to the original craft heading,
+      // not world north, or SIDE/REAR depend on the circuit's grid yaw.
+      const spin=angle+anchor+(reducedMotion?0:Math.sin(time*.23)*.055);
+      const r=10.8;
+      tmpPosition.set(game.position.x+Math.sin(spin)*r,
+        game.position.y+5.1,game.position.z+Math.cos(spin)*r);
+      // Shift focus toward the menu rather than hiding the real vehicle
+      // behind the left-hand customization controls. This is optical only.
+      const aspect=camera instanceof PerspectiveCamera?camera.aspect:1.6;
+      const shift=aspect>=1.15?Math.min(5.1,(aspect-1)*6):.35;
+      tmpLook.set(game.position.x-Math.cos(spin)*shift,
+        game.position.y+.35,
+        game.position.z+Math.sin(spin)*shift);
     }else{
       tmpPosition.set(
         game.position.x-directionalX+cos*sidestep,

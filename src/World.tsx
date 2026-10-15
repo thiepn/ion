@@ -16,7 +16,7 @@ import { CircuitSurfaceDetails } from './visuals/CircuitSurfaceDetails';
 import { RaceLineGuidance } from './visuals/RaceLineGuidance';
 import { IndustrialHorizon } from './visuals/IndustrialHorizon';
 import { IndustrialSky } from './visuals/IndustrialSky';
-import { ChaseRig } from './visuals/ChaseRig';
+import { ChaseRig, type ShowcaseView } from './visuals/ChaseRig';
 import { KenneyDistricts, KenneyRacer } from './visuals/KenneyAssets';
 import { AssetBoundary } from './visuals/AssetBoundary';
 import { CinematicEffects, ReflectionEnvironment, useRoadMaterials } from './visuals/Rendering';
@@ -28,6 +28,7 @@ type Props = {
   cameraMode: CameraMode;
   paint: string;
   showcase: boolean;
+  showcaseView:ShowcaseView;
   quality: 'PERFORMANCE'|'QUALITY';
   craftKind:'KESTREL'|'RACER';
   onSnapshot: (snapshot: RaceSnapshot) => void;
@@ -412,7 +413,7 @@ function AtmosphericParticles({quality}:{quality:'QUALITY'|'PERFORMANCE'}) {
   );
 }
 
-export function World({ game, input, onSnapshot, cameraMode, paint, showcase, quality, craftKind }: Props) {
+export function World({ game, input, onSnapshot, cameraMode, paint, showcase, showcaseView, quality, craftKind }: Props) {
   const ship = useRef<Group>(null);
   const hull = useRef<Group>(null);
   const { camera } = useThree();
@@ -451,7 +452,7 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       hull.current.rotation.z = game.roll;
       hull.current.rotation.x = game.pitch + Math.sin(clock.elapsedTime * 4) * 0.012;
     }
-    cameraRig.update(camera,game,dt,cameraMode,showcase,clock.elapsedTime,prefersReducedMotion);
+    cameraRig.update(camera,game,dt,cameraMode,showcase,clock.elapsedTime,prefersReducedMotion,showcaseView);
     if (clock.elapsedTime - lastReport.current > 0.1) {
       lastReport.current = clock.elapsedTime;
       onSnapshot(game.snapshot());
@@ -464,6 +465,19 @@ export function World({ game, input, onSnapshot, cameraMode, paint, showcase, qu
       <IndustrialSky/>
       <fogExp2 attach="fog" args={['#142034',0.00115]}/>
       <hemisphereLight args={['#d0e9f0','#293c4c',quality==='QUALITY'?1.65:1.82]}/>
+      {showcase&&game.phase==='menu'&&(
+        <group position={[game.position.x,game.position.y,game.position.z]}
+          rotation={[0,game.heading,0]}>
+          {/* Original garage-only key/rim rig. It uses the existing world
+              lights and one renderer; race lighting/physics are untouched. */}
+          <pointLight position={[-5,6,7]} color="#b8f7ea"
+            intensity={quality==='QUALITY'?34:22} distance={22} decay={2}/>
+          <pointLight position={[5,4,-5]} color="#ffb487"
+            intensity={quality==='QUALITY'?24:14} distance={20} decay={2}/>
+          <pointLight position={[0,6,-7]} color="#d9eef6"
+            intensity={quality==='QUALITY'?20:11} distance={18} decay={2}/>
+        </group>
+      )}
       <ambientLight intensity={quality==='QUALITY'?.42:.58} color="#9fc1d2"/>
       <directionalLight color="#ffcca8" intensity={quality==='QUALITY'?2.75:2.3}
         position={[110,180,-100]} castShadow={quality==='QUALITY'}

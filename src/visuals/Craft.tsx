@@ -164,6 +164,13 @@ export function Craft({game,shipRef,hullRef,paint}:{
             <boxGeometry args={[.14,.08,1.2]}/>
             <meshBasicMaterial toneMapped={false} color={WARM}/>
           </mesh>
+          {/* Hand-authored Kestrel nose spine: thin raised painted panels
+              tie its aggressive tapered hull to the selected garage paint. */}
+          <mesh position={[0,.42,2.07]} castShadow>
+            <boxGeometry args={[.28,.085,.83]}/>
+            <meshPhysicalMaterial color={paint} {...bodyMaterial}
+              clearcoat={.76} clearcoatRoughness={.19}/>
+          </mesh>
           {[-1,1].map((side,i)=>(
             <group key={side}>
               <mesh geometry={wings[i]} position={[0,-.08,0]} castShadow receiveShadow>
@@ -171,6 +178,13 @@ export function Craft({game,shipRef,hullRef,paint}:{
               </mesh>
               <mesh geometry={fins[i]} position={[0,.18,0]} castShadow>
                 <meshStandardMaterial color="#183244" {...edgeMaterial}/>
+              </mesh>
+              {/* Unlike the Rift's painted engine pods, Kestrel receives
+                  symmetric raised wing-edge finish accents. */}
+              <mesh position={[side*2.62,.27,.45]} rotation={[0,side*.12,0]} castShadow>
+                <boxGeometry args={[.28,.09,1.38]}/>
+                <meshPhysicalMaterial color={paint} metalness={.67} roughness={.29}
+                  clearcoat={.78} clearcoatRoughness={.18}/>
               </mesh>
               <mesh position={[side*3.05,.24,.72]} rotation={[0,side*.15,0]}>
                 <boxGeometry args={[.14,.13,1.2]}/>

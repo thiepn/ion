@@ -700,3 +700,50 @@ kbd { font: 400 9px 'IBM Plex Mono', monospace; margin-left: 5px; color: #abc5d2
   }
   .pause-options {margin-top:7px;}
 }
+
+/* I14: three direct camera poses in the original right-hand 3D garage.
+   The real model and live finish stay in the existing world canvas. */
+.garage-inspection {margin:12px 0 14px;max-width:405px}
+.garage-inspection .paint-title {margin-bottom:7px}
+.garage-view-buttons {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.garage-view-buttons button {
+  min-width:0;min-height:44px;
+  padding:8px 5px;
+  border:1px solid var(--ion-border);
+  border-radius:1px;
+  background:rgba(7,25,35,.82);
+  color:var(--ion-muted);
+  font:700 10px/1.25 var(--ion-data);
+  cursor:pointer;
+}
+.garage-view-buttons button.active,.garage-view-buttons button[aria-pressed="true"] {
+  border-color:var(--ion-cyan);
+  background:rgba(28,77,78,.72);
+  color:#effff8;
+}
+.garage-view-buttons button:hover {border-color:#c5f7ef}
+.garage-view-buttons button:focus-visible {outline:3px solid var(--ion-focus);outline-offset:2px}
+.garage-live-note {
+  margin:7px 0 9px;
+  padding:7px 10px;
+  border-left:2px solid var(--ion-coral);
+  background:rgba(7,24,31,.74);
+  color:#e6e9e1;
+  font:650 10px/1.5 var(--ion-data);
+}
+.garage-panel {scrollbar-gutter:stable}
+@media(max-width:680px) and (orientation:portrait) {
+  .garage-inspection {margin:8px 0}
+  .garage-view-buttons {gap:4px}
+  .garage-view-buttons button {font-size:9px;padding:6px 3px}
+  .garage-live-note {font-size:9px;padding:5px 7px;margin:5px 0}
+}
+@media(orientation:landscape) and (max-height:540px) {
+  .garage-inspection {margin:5px 0 8px}
+  .garage-inspection .paint-title {margin-bottom:3px}
+  .garage-view-buttons button {min-height:44px;font-size:9px;padding:4px 2px}
+  .garage-live-note {margin:3px 0;padding:4px 6px;font-size:9px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .garage-view-buttons button {transition:none}
+}
