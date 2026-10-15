@@ -113,7 +113,9 @@ export class InputController {
     const neutral=Math.abs(InputController.axis(pad.axes[0]))<.14 &&
       InputController.pressure(pad.buttons[7]?.value)<.08 &&
       InputController.pressure(pad.buttons[6]?.value)<.08 &&
-      ![0,1,2,3,4,5,9].some(i=>Boolean(pad.buttons[i]?.pressed));
+      // D-pad steering is also a driving input. Reconnect with a held
+      // direction must remain disarmed until that physical input is released.
+      ![0,1,2,3,4,5,9,14,15].some(i=>Boolean(pad.buttons[i]?.pressed));
     if(neutral)this.requireNeutralGamepad=false;
     return neutral;
   }
@@ -222,13 +224,19 @@ export class InputController {
         return {throttle,brake,steer,boost};
       const axis=Math.abs(rawAxis)>.15?
         Math.sign(rawAxis)*(Math.abs(rawAxis)-.15)/.85:0;
-      steer=Math.abs(axis)>Math.abs(steer)?axis:steer;
+      // Standard Gamepad D-pad left/right provides a usable fallback for
+      // controllers without a reliable left stick. The existing dead-zoned
+      // analog axis remains authoritative when no D-pad direction is held.
+      const dpad=Number(Boolean(pad.buttons[15]?.pressed))-
+        Number(Boolean(pad.buttons[14]?.pressed));
+      const padSteer=dpad!==0?dpad:axis;
+      steer=Math.abs(padSteer)>Math.abs(steer)?padSteer:steer;
       const gas=InputController.pressure(pad.buttons[7]?.value);
       const braking=InputController.pressure(pad.buttons[6]?.value);
       throttle=Math.max(throttle,gas,Number(Boolean(pad.buttons[0]?.pressed)));
       brake=Math.max(brake,braking,Number(Boolean(pad.buttons[1]?.pressed)));
       boost=boost||Boolean(pad.buttons[5]?.pressed);
-      if(Math.abs(axis)>.08 || gas>.08 || braking>.08 || boost ||
+      if(Math.abs(padSteer)>.08 || gas>.08 || braking>.08 || boost ||
          pad.buttons[0]?.pressed || pad.buttons[1]?.pressed)
         this.gamepadUsedForDriving=true;
     }
