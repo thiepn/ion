@@ -101,6 +101,7 @@ try{
     'minimum lateral clearance '+minPadClearance.toFixed(2)+'m');
 
   const kenney=readFileSync('src/visuals/KenneyAssets.tsx','utf8');
+  const skyline=readFileSync('src/visuals/IndustrialHorizon.tsx','utf8');
   const district=readFileSync('src/visuals/CircuitDressing.tsx','utf8');
   const guides=readFileSync('src/visuals/TrackInfrastructure.tsx','utf8');
   const world=readFileSync('src/World.tsx','utf8');
@@ -118,6 +119,18 @@ try{
   assert.ok(world.includes('color="#4e95a5"'));
   assert.ok(road.includes('original-service-deck joints'));
   pass('single existing renderer, correctly tinted instanced lights, honest native bridge signs and road materials');
+
+  assert.ok(skyline.includes('CIRCUIT_SECTIONS.map((section,i)=>'));
+  assert.ok(skyline.includes('sectionVisualAt(section.t).beacon'));
+  assert.ok(skyline.includes("quality==='QUALITY'?54:20"));
+  for(const section of CIRCUIT_SECTIONS){
+    const f=trackAt(section.t);
+    const x=f.position.x+f.right.x*(ROAD_HALF_WIDTH+125);
+    const z=f.position.z+f.right.z*(ROAD_HALF_WIDTH+125);
+    assert.ok(Math.hypot(x-f.position.x,z-f.position.z)>ROAD_HALF_WIDTH+100,
+      'skyline identity cannot intrude into canonical guardrail');
+  }
+  pass('five skyline identities outside circuit rails, bounded instancing for both presets');
 
   assert.ok(kenney.includes('heroIndices=[0,6,11,15,20]'));
   assert.ok(kenney.includes('quality===\'QUALITY\'||heroIndices.some'));
