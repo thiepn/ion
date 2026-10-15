@@ -48,12 +48,12 @@
     user-select:none;
     -webkit-user-select:none;
     border:2px solid #698c93;
-    border-radius:7px;
+    border-radius:2px;
     background:rgba(10,28,39,.93);
     color:#effffb;
     font:750 15px/1 'Inter',sans-serif;
     letter-spacing:0;
-    box-shadow:0 6px 20px #0009;
+    box-shadow:0 2px 7px #0009;
   }
   .touch-steering .touch-control { font:600 41px/1 'Inter',sans-serif; }
   .touch-driving .touch-control:nth-child(1) {
@@ -107,7 +107,7 @@
 
 /* Portrait phones: reserve central view for the craft and road. */
 @media (max-width:680px) and (orientation:portrait) {
-  .masthead { padding:10px 14px;gap:7px; }
+  .masthead { padding:max(10px,env(safe-area-inset-top)) 14px 10px;gap:7px; }
   .identity-mark { font-size:27px; }
   .identity-divider,.identity-detail,.build-label { display:none; }
   .masthead-right { gap:5px; }
@@ -140,10 +140,10 @@
   .track-alert strong { font-size:21px; }
 }
 @media (orientation:landscape) and (max-height:540px) {
-  .masthead { padding:7px 17px; }
+  .masthead { padding:max(7px,env(safe-area-inset-top)) 17px 7px; }
   .identity-mark { font-size:25px; }
   .identity-divider,.identity-detail,.build-label { display:none; }
-  .small-button { min-height:40px;padding:8px 9px;font-size:10px; }
+  .small-button { min-height:44px;padding:8px 9px;font-size:10px; }
   .race-top { top:45px;left:16px;right:16px; }
   .race-value strong { font-size:27px; }
   .race-time { margin-right:0; }
@@ -167,7 +167,7 @@
 
   .touch-steering { width:min(38%,245px); }
   .touch-driving { width:min(52%,310px); }
-  .touch-recover { top:-48px;height:40px;min-width:138px;font-size:10px; }
+  .touch-recover { top:-50px;height:44px;min-width:138px;font-size:10px; }
   .menu-panel h1 { font-size:clamp(47px,9vh,70px); }
 }
 @media (max-height:660px) and (orientation:portrait) {
@@ -290,7 +290,7 @@
   }
   .first-race-brief p {font-size:9px;line-height:1.2;margin:4px 0;}
   .first-race-brief strong {font-size:9px;}
-  .first-race-brief button {min-height:28px;font-size:9px;margin-top:3px;}
+  .first-race-brief button {min-height:44px;font-size:10px;margin-top:3px;}
   .approach-advice strong {font-size:12px;}
   .approach-advice span {font-size:8px;}
 }
