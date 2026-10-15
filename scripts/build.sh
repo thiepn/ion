@@ -22,5 +22,7 @@ node scripts/i10-authentic-replayability.mjs
 node scripts/i11-visual-source-smoke.mjs
 # I12 qualifies original earned gates and small-screen HUD source rules.
 node scripts/i12-hud-telemetry-smoke.mjs
+# I13 exercises the actual React menu and source-owned race lifecycle.
+node scripts/i13-menu-lifecycle-smoke.mjs
 node scripts/sync-cc0-assets.mjs
 npm run build
