@@ -256,7 +256,14 @@ export class RaceAudio {
     const prior=this.previous;
     this.previous=snapshot;
     this.applyMotor(snapshot,controls);
-    if(!this.on||this.backgroundSuspended||!prior)return;
+    if(!this.on||this.backgroundSuspended){
+      // Muted/hidden intervals still consume real original event serials,
+      // preventing an old checkpoint cue being replayed on reactivation.
+      if(snapshot.raceEvent?.serial && snapshot.raceEvent.serial>this.previousEventSerial)
+        this.previousEventSerial=snapshot.raceEvent.serial;
+      return;
+    }
+    if(!prior)return;
     if(snapshot.phase==='finished'&&prior.phase==='racing'){
       // Only the original finish authority can award this sound.
       if(snapshot.reason==='complete'){
