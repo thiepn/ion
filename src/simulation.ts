@@ -206,6 +206,10 @@ export class InputController {
   clear() {
     this.held.clear();
     this.touchHeld.clear();
+    // A new race/resume must not inherit "controller was used" from a prior
+    // run. Otherwise an unused pad unplugged during keyboard play may pause
+    // the new race even when its controls were never used for that run.
+    this.gamepadUsedForDriving=false;
     // Reacquire the neutral controller position after interrupted focus,
     // instead of reviving a previously held throttle or boost trigger.
     this.requireNeutralGamepad=true;
@@ -264,7 +268,7 @@ export class InputController {
       // keyboard direction. The former magnitude competition let a digital
       // key at |1| defeat every analog correction until that key was released.
       // A neutral controller leaves keyboard and touch steering available.
-      if(dpad!==0 || Math.abs(axis)>.035)steer=padSteer;
+      if(dpad!==0 || Math.abs(axis)>.08)steer=padSteer;
       const gas=InputController.filteredTrigger(pad.buttons[7]?.value);
       const braking=InputController.filteredTrigger(pad.buttons[6]?.value);
       throttle=Math.max(throttle,gas,Number(Boolean(pad.buttons[0]?.pressed)));
